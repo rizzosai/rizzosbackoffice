@@ -11,6 +11,10 @@ print(f"OpenAI API Key configured: {'Yes' if OPENAI_API_KEY else 'No'}")
 
 @app.route('/')
 def index():
+    # Check if user is logged in, if not redirect to login
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
