@@ -1,14 +1,13 @@
 
 from flask import Flask, send_from_directory
 import os
-from config import NAMECHEAP_API_KEY, ADMIN_USERNAME, STRIPE_SECRET
+from config import ADMIN_USERNAME, ADMIN_PASSWORD, OPENAI_API_KEY
 
 app = Flask(__name__, static_folder='../public')
 
 # Example usage of config variables (remove or use as needed)
-print(f"Namecheap API Key: {NAMECHEAP_API_KEY}")
 print(f"Admin Username: {ADMIN_USERNAME}")
-print(f"Stripe Secret: {STRIPE_SECRET}")
+print(f"OpenAI API Key configured: {'Yes' if OPENAI_API_KEY else 'No'}")
 
 @app.route('/')
 def index():
