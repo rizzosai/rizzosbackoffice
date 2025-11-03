@@ -1,9 +1,14 @@
-from flask import Flask, send_from_directory, request, redirect, url_for, session, flash, render_template_string
+from flask import Flask, send_from_directory, request, redirect, url_for, session, flash, render_template_string, jsonify
 import os
+import openai
 from src.config import ADMIN_USERNAME, ADMIN_PASSWORD, OPENAI_API_KEY
 
 app = Flask(__name__, static_folder='public')
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+
+# Configure OpenAI for Coey
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
 
 # Example usage of config variables (remove or use as needed)
 print(f"Admin Username: {ADMIN_USERNAME}")
@@ -16,6 +21,87 @@ def index():
         return redirect(url_for('login'))
     
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/coey')
+def coey():
+    """Coey AI Assistant page"""
+    if not session.get('logged_in'):
+        flash('Please log in to access Coey AI Assistant.', 'error')
+        return redirect(url_for('login'))
+    
+    return send_from_directory(app.static_folder, 'coey.html')
+
+@app.route('/coey/chat', methods=['POST'])
+def coey_chat():
+    """Handle Coey AI chat requests"""
+    if not session.get('logged_in'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '')
+        
+        if not user_message:
+            return jsonify({'error': 'No message provided'}), 400
+        
+        # Get user context
+        username = session.get('username', 'User')
+        
+        # Coey's system prompt with RizzosAI context
+        system_prompt = f"""You are Coey, an AI business assistant for RizzosAI domain business owners. 
+        You help users with:
+        - Understanding their training guides and how to implement them
+        - Business strategy advice for domain and referral marketing
+        - Technical help with their backoffice and domain setup
+        - Analytics and performance insights
+        - Scaling their online business
+        
+        The user {username} has access to training guides based on their package:
+        - Starter ($29): 5 Essential Success Guides
+        - Pro ($99): 13 Advanced Business Guides  
+        - Elite ($249): 20 Elite Strategy Guides
+        - Empire ($499): 35 Empire Building Guides
+        
+        Be helpful, encouraging, and provide actionable advice. Keep responses concise but informative."""
+        
+        if OPENAI_API_KEY:
+            # Use OpenAI for actual AI responses
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            coey_response = response.choices[0].message.content.strip()
+        else:
+            # Fallback responses when OpenAI is not configured
+            fallback_responses = {
+                'hello': f"Hello {username}! I'm Coey, your AI business assistant. I'm here to help you succeed with your RizzosAI domain business. What would you like to know?",
+                'help': "I can help you with: 📊 Business analytics, 🎓 Guide implementation, 💡 Strategy advice, 🔧 Technical support, and 📈 Scaling your business. What specific area interests you?",
+                'guides': "Your training guides are designed to take you from beginner to expert. Start with the foundational guides in your package, then move to more advanced strategies. Which guide would you like help with?",
+                'default': f"Thanks for your question, {username}! I'd love to help you with that. Since I'm still learning, I recommend checking your training guides for detailed strategies, or feel free to ask me something more specific about your RizzosAI business."
+            }
+            
+            # Simple keyword matching for demo
+            message_lower = user_message.lower()
+            if any(word in message_lower for word in ['hello', 'hi', 'hey']):
+                coey_response = fallback_responses['hello']
+            elif any(word in message_lower for word in ['help', 'what can you do']):
+                coey_response = fallback_responses['help']
+            elif any(word in message_lower for word in ['guide', 'training', 'learn']):
+                coey_response = fallback_responses['guides']
+            else:
+                coey_response = fallback_responses['default']
+        
+        return jsonify({'response': coey_response})
+        
+    except Exception as e:
+        print(f"Coey chat error: {str(e)}")
+        return jsonify({'response': 'Sorry, I encountered an error. Please try again later.'}), 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -76,6 +162,7 @@ def admin_dashboard():
 
             <div class="nav-menu">
                 <a href="/" class="nav-button">Public Dashboard</a>
+                <a href="/coey" class="nav-button">🤖 Ask Coey</a>
                 <a href="/domain-check" class="nav-button">Domain Check</a>
                 <a href="/logout" class="nav-button">Logout</a>
             </div>

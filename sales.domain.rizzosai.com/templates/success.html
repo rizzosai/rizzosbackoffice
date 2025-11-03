@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to RizzosAI - Purchase Successful!</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%);
+            color: #001f5b;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .success-container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 31, 91, 0.1);
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 40px;
+            border: 3px solid #28a745;
+        }
+        .success-icon {
+            font-size: 4em;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #001f5b;
+            font-size: 2.2em;
+            margin-bottom: 15px;
+        }
+        .package-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border-left: 5px solid #e60000;
+        }
+        .redirect-button {
+            display: inline-block;
+            background: #001f5b;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.3em;
+            padding: 15px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin: 20px 0;
+            transition: background 0.3s;
+        }
+        .redirect-button:hover {
+            background: #e60000;
+        }
+        .next-steps {
+            background: #e8f5e8;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .next-steps h3 {
+            color: #001f5b;
+            margin-top: 0;
+        }
+        .auto-redirect {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 15px;
+        }
+    </style>
+    <script>
+        // Auto-redirect after 10 seconds
+        setTimeout(function() {
+            window.location.href = 'https://backoffice.rizzosai.com/login?package={{ package_type }}&email={{ customer_email }}';
+        }, 10000);
+        
+        // Countdown timer
+        let countdown = 10;
+        function updateCountdown() {
+            document.getElementById('countdown').innerText = countdown;
+            countdown--;
+            if (countdown >= 0) {
+                setTimeout(updateCountdown, 1000);
+            }
+        }
+        window.onload = updateCountdown;
+    </script>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">✅</div>
+        <h1>Welcome to RizzosAI!</h1>
+        <p style="font-size: 1.2em;">Your purchase was successful. Thank you for joining our community!</p>
+        
+        <div class="package-info">
+            <h3>{{ package_type.title() }} Package Activated</h3>
+            {% if package_type == 'starter' %}
+                <p>You now have access to <strong>5 Essential Success Guides</strong></p>
+            {% elif package_type == 'pro' %}
+                <p>You now have access to <strong>13 Advanced Business Guides</strong></p>
+            {% elif package_type == 'elite' %}
+                <p>You now have access to <strong>20 Elite Strategy Guides</strong></p>
+            {% elif package_type == 'empire' %}
+                <p>You now have access to <strong>35 Empire Building Guides</strong></p>
+            {% endif %}
+            
+            {% if customer_email %}
+                <p><strong>Account Email:</strong> {{ customer_email }}</p>
+            {% endif %}
+        </div>
+        
+        <div class="next-steps">
+            <h3>🚀 Next Steps:</h3>
+            <ol>
+                <li>Click the button below to access your backoffice</li>
+                <li>Log in with your credentials (check your email)</li>
+                <li>Download your exclusive guides</li>
+                <li>Start building your online empire!</li>
+            </ol>
+        </div>
+        
+        <a href="https://backoffice.rizzosai.com/login?package={{ package_type }}&email={{ customer_email }}" 
+           class="redirect-button">
+            Access Your Backoffice Now
+        </a>
+        
+        <div class="auto-redirect">
+            Automatically redirecting in <span id="countdown">10</span> seconds...
+        </div>
+    </div>
+</body>
+</html>
