@@ -1,1 +1,122 @@
-<!-- Place your domain-check.html content here -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domain Check - Rizzos Backoffice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+        }
+        .back-link {
+            margin-bottom: 20px;
+        }
+        .back-link a {
+            color: #007bff;
+            text-decoration: none;
+            padding: 10px 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .domain-form {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .check-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .check-button:hover {
+            background-color: #0056b3;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="back-link">
+            <a href="/">← Back to Dashboard</a>
+        </div>
+        
+        <div class="header">
+            <h1>🌐 Domain Check Tool</h1>
+            <p>Domain Availability & Information Checker</p>
+        </div>
+
+        <div class="domain-form">
+            <h2>Check Domain</h2>
+            <form action="#" method="post">
+                <div class="form-group">
+                    <label for="domain">Domain Name:</label>
+                    <input type="text" id="domain" name="domain" placeholder="example.com" required>
+                </div>
+                
+                <button type="submit" class="check-button">Check Domain</button>
+            </form>
+        </div>
+
+        <div class="results">
+            <h3>Domain Information</h3>
+            <p>Enter a domain name above to check its availability and get detailed information.</p>
+            
+            <h4>Features:</h4>
+            <ul>
+                <li>Domain availability checking</li>
+                <li>WHOIS information lookup</li>
+                <li>DNS record analysis</li>
+                <li>Registration status verification</li>
+            </ul>
+        </div>
+
+        <div class="results">
+            <h3>Recent Checks</h3>
+            <p>Your recent domain check history will appear here.</p>
+        </div>
+    </div>
+</body>
+</html>

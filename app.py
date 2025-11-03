@@ -12,6 +12,22 @@ print(f"OpenAI API Key configured: {'Yes' if OPENAI_API_KEY else 'No'}")
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
+@app.route('/login')
+def login():
+    return send_from_directory(app.static_folder, 'login.html')
+
+@app.route('/privacy')
+def privacy():
+    return send_from_directory(app.static_folder, 'privacy.html')
+
+@app.route('/terms')
+def terms():
+    return send_from_directory(app.static_folder, 'terms.html')
+
+@app.route('/domain-check')
+def domain_check():
+    return send_from_directory(app.static_folder, 'domain-check.html')
+
 @app.route('/<path:filename>')
 def serve_file(filename):
     return send_from_directory(app.static_folder, filename)
