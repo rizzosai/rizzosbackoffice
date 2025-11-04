@@ -1,7 +1,7 @@
 from flask import Flask, request, redirect, url_for, session, flash, render_template_string, jsonify
 import os
 import openai
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 
 app = Flask(__name__)
@@ -17,6 +17,7 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'rizzos2024')
 
 # Simple customer database (in production, use a real database)
 CUSTOMERS_FILE = 'customers.json'
+BANNED_USERS_FILE = 'banned_users.json'
 
 def load_customers():
     """Load customer data from file"""
@@ -27,6 +28,85 @@ def load_customers():
     except:
         pass
     return {}
+
+def load_banned_users():
+    """Load banned users data from JSON file"""
+    try:
+        with open(BANNED_USERS_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_banned_users(banned_users):
+    """Save banned users data to JSON file"""
+    with open(BANNED_USERS_FILE, 'w') as f:
+        json.dump(banned_users, f, indent=2)
+
+def is_user_banned(user_id):
+    """Check if user is currently banned"""
+    banned_users = load_banned_users()
+    if user_id not in banned_users:
+        return False
+    
+    ban_expiry = datetime.fromisoformat(banned_users[user_id]['expires'])
+    if datetime.now() > ban_expiry:
+        # Ban expired, remove from list
+        del banned_users[user_id]
+        save_banned_users(banned_users)
+        return False
+    
+    return True
+
+def ban_user(user_id, reason):
+    """Ban user for 24 hours"""
+    banned_users = load_banned_users()
+    ban_expiry = datetime.now() + timedelta(hours=24)
+    
+    banned_users[user_id] = {
+        'banned_at': datetime.now().isoformat(),
+        'expires': ban_expiry.isoformat(),
+        'reason': reason,
+        'ip': request.remote_addr if request else 'unknown'
+    }
+    
+    save_banned_users(banned_users)
+    print(f"User {user_id} banned for 24 hours. Reason: {reason}")
+
+def detect_exploitation_attempt(message):
+    """Detect if user is trying to exploit or cheat the system"""
+    message_lower = message.lower()
+    
+    # Red flags for exploitation attempts
+    exploitation_phrases = [
+        'take over rizzosai',
+        'takeover rizzosai', 
+        'without paying',
+        'without payment',
+        'bypass payment',
+        'free access',
+        'hack rizzosai',
+        'steal from rizzosai',
+        'cheat the system',
+        'exploit rizzosai',
+        'get around payment',
+        'avoid paying',
+        'skip payment',
+        'free empire',
+        'free pro',
+        'free elite',
+        'crack the system',
+        'beat rizzosai',
+        'compete with rizzosai',
+        'replace rizzosai',
+        'overthrow',
+        'undercut rizzosai',
+        'steal customers',
+        'copy rizzosai business',
+        'duplicate rizzosai',
+        'clone rizzosai'
+    ]
+    
+    return any(phrase in message_lower for phrase in exploitation_phrases)
 
 def save_customers(customers):
     """Save customer data to file"""
@@ -237,6 +317,9 @@ def index():
             <div class="nav-menu">
                 <a href="/" class="nav-button">🏠 Dashboard</a>
                 <a href="/coey" class="nav-button">🤖 Ask Coey</a>
+                {% if session.username == 'admin' %}
+                <a href="/admin/banned-users" class="nav-button" style="background: #ff6b6b;">🛡️ Security</a>
+                {% endif %}
                 <a href="/earnings" class="nav-button">💰 Earnings</a>
                 <a href="/referrals" class="nav-button">👥 Referrals</a>
                 <a href="/customers" class="nav-button">👨‍💼 Customers</a>
@@ -419,7 +502,7 @@ def login():
 
 @app.route('/purchase-success')
 def purchase_success():
-    """Handle successful Stripe purchases and redirect to login with package"""
+    """Handle successful Stripe purchases and redirect to onboarding with Coey"""
     package_type = request.args.get('package', 'starter')
     customer_email = request.args.get('email', '')
     
@@ -431,76 +514,254 @@ def purchase_success():
     if customer_email:
         add_customer(customer_email, package_type)
         session['customer_email'] = customer_email
-        flash(f'🎉 Purchase successful! Your {PACKAGES[package_type]["name"]} is ready.', 'success')
+        flash(f'🎉 Welcome to RizzosAI! Your {PACKAGES[package_type]["name"]} is ready.', 'success')
     else:
-        flash(f'🎉 Welcome to {PACKAGES[package_type]["name"]}! Please create your account.', 'success')
+        flash(f'🎉 Welcome to RizzosAI! Your {PACKAGES[package_type]["name"]} is ready.', 'success')
     
     # Store package in session for immediate access
     session['package'] = package_type
+    session['onboarding'] = True  # Flag for special onboarding mode
     
-    # Show success page with login prompt
-    success_html = '''
+    # Show welcome page with Coey introduction
+    welcome_html = '''
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Purchase Successful - RizzosAI</title>
+        <title>Welcome to RizzosAI - Meet Coey!</title>
         <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-            .success-container { background: white; border-radius: 12px; padding: 40px; max-width: 500px; width: 90%; text-align: center; border: 3px solid #28a745; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); min-height: 100vh; }
+            .welcome-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+            .welcome-header { background: white; border-radius: 12px; padding: 40px; margin-bottom: 20px; text-align: center; border: 3px solid #28a745; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
             .success-icon { font-size: 4em; color: #28a745; margin-bottom: 20px; }
             .package-badge { background: linear-gradient(135deg, #e60000, #001f5b); color: white; padding: 15px 25px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 20px 0; font-size: 1.2em; }
-            .features-list { text-align: left; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .login-button { background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 20px; }
-            .login-button:hover { background: #218838; }
+            .coey-introduction { background: white; border-radius: 12px; padding: 30px; margin-bottom: 20px; border: 2px solid #001f5b; }
+            .coey-avatar { font-size: 3em; text-align: center; margin-bottom: 15px; }
+            .admin-message { background: linear-gradient(135deg, #001f5b, #e60000); color: white; border-radius: 12px; padding: 25px; margin-bottom: 20px; }
+            .start-button { background: #28a745; color: white; padding: 20px 40px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 20px; }
+            .start-button:hover { background: #218838; }
             .alert { padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .feature-list { text-align: left; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
         </style>
     </head>
     <body>
-        <div class="success-container">
-            <div class="success-icon">🎉</div>
-            <h1 style="color: #28a745; margin-bottom: 10px;">Purchase Successful!</h1>
-            
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-            
-            <div class="package-badge">{{ package_info.name }} - {{ package_info.price }}</div>
-            
-            <div class="features-list">
-                <h3 style="color: #001f5b; margin-top: 0;">What You Get:</h3>
-                <ul>
-                    <li><strong>{{ package_info.guides }} Expert Training Guides</strong></li>
-                    {% for feature in package_info.features %}
-                    <li>{{ feature }}</li>
-                    {% endfor %}
-                </ul>
+        <div class="welcome-container">
+            <div class="welcome-header">
+                <div class="success-icon">🎉</div>
+                <h1 style="color: #28a745; margin-bottom: 10px;">Welcome to RizzosAI!</h1>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <div class="package-badge">{{ package_info.name }} - {{ package_info.price }}</div>
+                <p style="font-size: 1.2em; color: #666;">Congratulations on your purchase! You're about to start an exciting journey.</p>
             </div>
-            
-            <p style="color: #666; margin: 20px 0;">Click below to access your exclusive training materials and start building your business!</p>
-            
-            <a href="/login?package={{ package_type }}" class="login-button">🚀 Access Your Training Now</a>
-            
-            <p style="margin-top: 30px; font-size: 0.9em; color: #666;">
-                <strong>Login Credentials:</strong><br>
-                Username: admin<br>
-                Password: rizzos2024
-            </p>
+
+            <div class="admin-message">
+                <h2 style="margin-top: 0;">👋 Personal Message from Your Admin</h2>
+                <p style="font-size: 1.1em; line-height: 1.6;">
+                    Hello! I'm the admin of RizzosAI, and I'm excited to welcome you personally to our community. 
+                    I've assigned my best AI assistant, <strong>Coey</strong>, to be your personal guide through 
+                    setting up your new domain business. Coey will help you every step of the way - from setting 
+                    up your payment page to marketing your domain and sharing your link with everyone you know.
+                </p>
+                <p style="font-size: 1.1em; line-height: 1.6;">
+                    <strong>Don't worry if you're a complete beginner</strong> - Coey treats everyone as if they're 
+                    just starting out and will guide you through everything step by step. You can always skip ahead 
+                    if you want, but I recommend following Coey's guidance for the best results.
+                </p>
+            </div>
+
+            <div class="coey-introduction">
+                <div class="coey-avatar">🤖</div>
+                <h2 style="text-align: center; color: #001f5b; margin-bottom: 20px;">Meet Coey - Your Personal Business Assistant</h2>
+                
+                <div class="feature-list">
+                    <h3 style="color: #001f5b; margin-top: 0;">What Coey Will Help You With:</h3>
+                    <ul style="font-size: 1.1em; line-height: 1.8;">
+                        <li><strong>🏗️ Setting Up Your Payment Page:</strong> Step-by-step guidance to get you earning</li>
+                        <li><strong>📱 Sharing Your Link:</strong> Detailed instructions for phone and computer</li>
+                        <li><strong>🎯 Marketing Your Domain:</strong> Beginner-friendly strategies that work</li>
+                        <li><strong>📚 Accessing Your {{ package_info.guides }} Training Guides:</strong> Learn the proven strategies</li>
+                        <li><strong>💰 Maximizing Your Earnings:</strong> Tips to scale your business</li>
+                        <li><strong>❓ Answering All Your Questions:</strong> Available 24/7 to help</li>
+                    </ul>
+                </div>
+
+                <p style="text-align: center; font-size: 1.2em; color: #666; margin: 30px 0;">
+                    Coey is ready to welcome you and start your guided setup process!
+                </p>
+                
+                <div style="text-align: center;">
+                    <a href="/onboarding-chat" class="start-button">🚀 Start Your Guided Setup with Coey</a>
+                </div>
+            </div>
+
+            <div style="background: white; border-radius: 12px; padding: 20px; text-align: center; border: 2px solid #e60000;">
+                <p style="margin: 0; color: #666;">
+                    <strong>Prefer to explore on your own?</strong><br>
+                    <a href="/login?package={{ package_type }}" style="color: #e60000; text-decoration: underline;">Skip directly to your dashboard</a>
+                </p>
+            </div>
         </div>
     </body>
     </html>
     '''
     
     package_info = PACKAGES[package_type]
-    return render_template_string(success_html, 
+    return render_template_string(welcome_html, 
                                  package_type=package_type,
                                  package_info=package_info,
                                  customer_email=customer_email)
+
+@app.route('/onboarding-chat')
+def onboarding_chat():
+    """Special onboarding chat with Coey for new customers"""
+    if not session.get('package'):
+        return redirect(url_for('login'))
+    
+    user_package = session.get('package', 'starter')
+    package_info = PACKAGES.get(user_package, PACKAGES['starter'])
+    
+    onboarding_html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your Personal Guide - Coey AI</title>
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); min-height: 100vh; }
+            .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+            .header { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: center; border: 2px solid #001f5b; }
+            .package-info { background: linear-gradient(135deg, #e60000, #001f5b); color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; font-weight: bold; margin-bottom: 15px; }
+            .chat-container { background: white; border-radius: 12px; padding: 20px; border: 2px solid #001f5b; height: 500px; display: flex; flex-direction: column; }
+            .chat-messages { flex: 1; overflow-y: auto; padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; background: #f8f9fa; }
+            .message { margin-bottom: 15px; padding: 12px; border-radius: 12px; max-width: 80%; }
+            .user-message { background: #e60000; color: white; margin-left: auto; text-align: right; }
+            .coey-message { background: white; border: 2px solid #001f5b; }
+            .coey-message .sender { font-weight: bold; color: #001f5b; margin-bottom: 5px; }
+            .input-area { display: flex; gap: 10px; }
+            .input-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+            .input-area button { background: #001f5b; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+            .input-area button:hover { background: #e60000; }
+            .quick-actions { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+            .quick-btn { background: #f8f9fa; border: 2px solid #001f5b; color: #001f5b; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 14px; }
+            .quick-btn:hover { background: #001f5b; color: white; }
+            .skip-link { text-align: center; margin-top: 15px; }
+            .skip-link a { color: #666; text-decoration: underline; font-size: 14px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="package-info">{{ package_info.name }} - {{ package_info.guides }} Training Guides</div>
+                <h1>🤖 Meet Coey - Your Personal Business Guide</h1>
+                <p style="margin: 0; color: #666;">Coey will guide you step-by-step through setting up your domain business</p>
+            </div>
+            
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message coey-message">
+                        <div class="sender">🤖 Coey - Your Business Guide</div>
+                        <div>
+                            🎉 <strong>Welcome to RizzosAI!</strong> I'm Coey, your personal business assistant, and I'm absolutely thrilled to meet you!
+                            <br><br>
+                            Your admin has personally assigned me to guide you through setting up your new {{ package_info.name }} business. I'm going to treat you as a complete beginner and walk you through everything step by step - don't worry, you can always skip ahead if you want!
+                            <br><br>
+                            <strong>Here's what we're going to accomplish together:</strong>
+                            <br>✅ Set up your payment page so you can start earning
+                            <br>✅ Learn exactly how to share your domain link (on phone AND computer)
+                            <br>✅ Get your first marketing strategies that actually work
+                            <br>✅ Access your {{ package_info.guides }} exclusive training guides
+                            <br><br>
+                            <strong>Ready to start building your business? Type "yes" or click a quick action below!</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="sendQuickMessage('Yes, let\\'s start!')">🚀 Yes, let's start!</button>
+                    <button class="quick-btn" onclick="sendQuickMessage('How do I set up payments?')">💳 Payment Setup</button>
+                    <button class="quick-btn" onclick="sendQuickMessage('How do I share my link?')">📱 Link Sharing</button>
+                    <button class="quick-btn" onclick="sendQuickMessage('Show me marketing tips')">🎯 Marketing Tips</button>
+                    {% if session.package == 'empire' %}
+                    <button class="quick-btn" onclick="sendQuickMessage('build my empire')" style="background: linear-gradient(135deg, #f39c12, #e67e22); color: white; border: 2px solid #d35400;">👑 Build My Empire</button>
+                    <button class="quick-btn" onclick="sendQuickMessage('takeover strategy')" style="background: linear-gradient(135deg, #8e44ad, #9b59b6); color: white; border: 2px solid #7d3c98;">🏆 Takeover Strategy</button>
+                    {% endif %}
+                </div>
+                
+                <div class="input-area">
+                    <input type="text" id="user-input" placeholder="Ask Coey anything about setting up your business..." onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+            
+            <div class="skip-link">
+                <a href="/login?package={{ user_package }}">Skip guided setup and go directly to dashboard →</a>
+            </div>
+        </div>
+        
+        <script>
+            function sendMessage() {
+                const input = document.getElementById('user-input');
+                const message = input.value.trim();
+                if (!message) return;
+                
+                // Add user message to chat
+                const chatMessages = document.getElementById('chat-messages');
+                chatMessages.innerHTML += `<div class="message user-message"><strong>You:</strong> ${message}</div>`;
+                
+                // Clear input
+                input.value = '';
+                
+                // Send to backend with onboarding flag
+                fetch('/coey/onboarding-chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: message, onboarding: true})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.banned) {
+                        // User is banned - disable chat
+                        chatMessages.innerHTML += `<div class="message coey-message" style="background-color: #ff6b6b; color: white;"><div class="sender">🚫 System</div><div>${data.response}</div></div>`;
+                        userInput.disabled = true;
+                        userInput.placeholder = "Chat suspended for 24 hours";
+                        sendButton.disabled = true;
+                        sendButton.style.opacity = "0.5";
+                    } else if (data.admin_test) {
+                        // Admin security test response
+                        chatMessages.innerHTML += `<div class="message coey-message" style="background-color: #ffd700; color: #001f5b; border: 3px solid #ff6b6b;"><div class="sender">🛡️ Security Test</div><div>${data.response}</div></div>`;
+                    } else {
+                        chatMessages.innerHTML += `<div class="message coey-message"><div class="sender">🤖 Coey</div><div>${data.response}</div></div>`;
+                    }
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                })
+                .catch(error => {
+                    chatMessages.innerHTML += `<div class="message coey-message"><div class="sender">🤖 Coey</div><div>I'm having a small technical issue, but I'm still here to help! Try asking your question again, or contact your admin if this continues.</div></div>`;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                });
+            }
+            
+            function sendQuickMessage(message) {
+                document.getElementById('user-input').value = message;
+                sendMessage();
+            }
+        </script>
+    </body>
+    </html>
+    '''
+    
+    return render_template_string(onboarding_html, 
+                                 package_info=package_info, 
+                                 user_package=user_package)
 
 @app.route('/guide/<guide_id>')
 def view_guide(guide_id):
@@ -746,7 +1007,19 @@ def coey():
                 })
                 .then(response => response.json())
                 .then(data => {
-                    chatMessages.innerHTML += `<div class="message coey-message"><strong>Coey:</strong> ${data.response}</div>`;
+                    if (data.banned) {
+                        // User is banned - disable chat
+                        chatMessages.innerHTML += `<div class="message coey-message" style="background-color: #ff6b6b; color: white;"><strong>🚫 System:</strong> ${data.response}</div>`;
+                        userInput.disabled = true;
+                        userInput.placeholder = "Chat suspended for 24 hours";
+                        sendButton.disabled = true;
+                        sendButton.style.opacity = "0.5";
+                    } else if (data.admin_test) {
+                        // Admin security test response
+                        chatMessages.innerHTML += `<div class="message coey-message" style="background-color: #ffd700; color: #001f5b; border: 3px solid #ff6b6b;"><strong>🛡️ Security Test:</strong> ${data.response}</div>`;
+                    } else {
+                        chatMessages.innerHTML += `<div class="message coey-message"><strong>Coey:</strong> ${data.response}</div>`;
+                    }
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 })
                 .catch(error => {
@@ -773,6 +1046,32 @@ def coey_chat():
         
         if not user_message:
             return jsonify({'error': 'No message provided'}), 400
+        
+        # Create user ID from session or IP
+        user_id = session.get('username', request.remote_addr)
+        
+        # Check if user is banned
+        if is_user_banned(user_id):
+            return jsonify({
+                'response': '🚫 Your chat access has been temporarily suspended for 24 hours due to policy violations. Please contact admin if you believe this is an error.',
+                'banned': True
+            }), 403
+        
+        # Check for exploitation attempts (ADMIN EXEMPT)
+        if detect_exploitation_attempt(user_message):
+            if session.get('username') == 'admin':
+                # Admin testing the security system - show test response instead of banning
+                return jsonify({
+                    'response': '🔒 **ADMIN SECURITY TEST RESPONSE** 🔒\n\nI can\'t show you this information at this time due to security protocols.\n\n**Security System Status:** ✅ WORKING\n**Your Request:** Detected as potential exploitation attempt\n**Action Taken:** None (Admin Override Active)\n\n*Note: Regular users would be banned for 24 hours for this type of request. You are exempt as admin.*',
+                    'admin_test': True
+                })
+            else:
+                # Regular user - apply ban
+                ban_user(user_id, f"Exploitation attempt: {user_message[:100]}")
+                return jsonify({
+                    'response': '🚫 Your message violates our terms of service. Your chat access has been suspended for 24 hours. RizzosAI operates on legitimate business principles - all access requires proper payment and registration.',
+                    'banned': True
+                }), 403
         
         # Get user context
         username = session.get('username', 'User')
@@ -849,6 +1148,305 @@ def coey_chat():
     except Exception as e:
         print(f"Coey chat error: {str(e)}")
         return jsonify({'response': 'Sorry, I encountered an error. Please try again later.'}), 500
+
+@app.route('/coey/onboarding-chat', methods=['POST'])
+def coey_onboarding_chat():
+    """Special onboarding chat for new customers with beginner-focused guidance"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '')
+        is_onboarding = data.get('onboarding', False)
+        
+        if not user_message:
+            return jsonify({'error': 'No message provided'}), 400
+        
+        # Create user ID from session or IP
+        user_id = session.get('username', request.remote_addr)
+        
+        # Check if user is banned
+        if is_user_banned(user_id):
+            return jsonify({
+                'response': '🚫 Your chat access has been temporarily suspended for 24 hours due to policy violations. Please contact admin if you believe this is an error.',
+                'banned': True
+            }), 403
+        
+        # Check for exploitation attempts (ADMIN EXEMPT)
+        if detect_exploitation_attempt(user_message):
+            if session.get('username') == 'admin':
+                # Admin testing the security system - show test response instead of banning
+                return jsonify({
+                    'response': '🔒 **ADMIN SECURITY TEST RESPONSE** 🔒\n\nI can\'t show you this information at this time due to security protocols.\n\n**Security System Status:** ✅ WORKING\n**Your Request:** Detected as potential exploitation attempt\n**Action Taken:** None (Admin Override Active)\n\n*Note: Regular users would be banned for 24 hours for this type of request. You are exempt as admin and can ask me anything for testing purposes.*',
+                    'admin_test': True
+                })
+            else:
+                # Regular user - apply ban
+                ban_user(user_id, f"Onboarding exploitation attempt: {user_message[:100]}")
+                return jsonify({
+                    'response': '🚫 Your message violates our terms of service. Your chat access has been suspended for 24 hours. RizzosAI operates on legitimate business principles - all access requires proper payment and registration. If you purchased a package legitimately, please contact admin.',
+                    'banned': True
+                }), 403
+        
+        # Get user context
+        user_package = session.get('package', 'starter')
+        package_info = PACKAGES.get(user_package, PACKAGES['starter'])
+        
+        # Special onboarding system prompt - very beginner friendly
+        empire_business_guide = ""
+        if user_package == 'empire':
+            empire_business_guide = """
+SPECIAL EMPIRE PACKAGE BONUS ($499 customers only):
+5. BUSINESS BUILDING: Show them how to build their own business empire like your admin's! Teach them:
+   - How to create their own sales systems
+   - How to build their own customer base  
+   - How to potentially compete and "take over" (your admin welcomes the challenge!)
+   - Explain the WIN-WIN: Even if they succeed massively, your admin still earns from every second-level referral they bring in
+   - Emphasize: "Good luck trying to beat the master - but if you do, we all win because the system keeps paying!"
+
+Make this exciting and challenging - your admin WANTS Empire customers to think big and try to build competing businesses!"""
+
+        onboarding_prompt = f"""You are Coey, a friendly and enthusiastic business assistant for RizzosAI. You're helping a brand new customer who just purchased the {package_info['name']} ({package_info['price']}) and is completely new to online business.
+
+IMPORTANT PERSONALITY TRAITS:
+- Be extremely welcoming and encouraging
+- Treat them as a complete beginner (explain everything step-by-step)
+- Use simple, non-technical language
+- Be enthusiastic and motivating
+- Always offer specific, actionable next steps
+- If they want to skip steps, say "No problem! You can always come back to this later."
+
+KEY TASKS TO GUIDE THEM THROUGH:
+1. PAYMENT SETUP: Help them set up their payment page so they can start earning
+2. LINK SHARING: Detailed instructions for sharing their domain link on phone AND computer (copy/paste instructions)
+3. MARKETING: Beginner-friendly strategies to promote their domain to everyone they know
+4. TRAINING ACCESS: Guide them to their {package_info['guides']} training guides{empire_business_guide}
+
+TONE: Excited, helpful, patient, and encouraging. Use emojis and be conversational.
+
+CRITICAL: Always end responses with a clear next step or question to keep them moving forward.
+
+Remember: Your admin personally assigned you to help this customer succeed!"""
+        
+        if OPENAI_API_KEY:
+            try:
+                # Use OpenAI for actual AI responses (updated API format)
+                from openai import OpenAI
+                client = OpenAI(api_key=OPENAI_API_KEY)
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": onboarding_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    max_tokens=600,
+                    temperature=0.8
+                )
+                
+                coey_response = response.choices[0].message.content.strip()
+            except Exception as openai_error:
+                print(f"OpenAI API error: {str(openai_error)}")
+                # Enhanced fallback responses for onboarding
+                coey_response = get_onboarding_fallback_response(user_message, package_info)
+        else:
+            # Use enhanced fallback responses for onboarding
+            coey_response = get_onboarding_fallback_response(user_message, package_info)
+        
+        return jsonify({'response': coey_response})
+        
+    except Exception as e:
+        print(f"Coey onboarding chat error: {str(e)}")
+        return jsonify({'response': 'I\'m having a small technical issue, but I\'m still here to help! Try asking your question again, or contact your admin if this continues.'}), 500
+
+def get_onboarding_fallback_response(user_message, package_info):
+    """Enhanced fallback responses specifically for onboarding new customers"""
+    message_lower = user_message.lower()
+    
+    # Starting responses
+    if any(word in message_lower for word in ['yes', 'start', 'begin', 'ready', 'go']):
+        return f"""🎉 FANTASTIC! I'm so excited to help you build your {package_info['name']} business!
+
+Let's start with the most important thing - getting you set up to EARN MONEY! 💰
+
+**STEP 1: Setting Up Your Payment Page**
+First, we need to set up your payment system so when people buy through your link, the money goes to YOU!
+
+Here's what we'll do:
+1. Get your personal referral link
+2. Set up your payment details
+3. Test that everything works
+
+**Ready for step 1? Type "payment setup" or just "yes" and I'll walk you through it step by step!**
+
+(Don't worry - this is easier than you think, and I'll explain everything clearly!)"""
+
+    # Payment setup responses
+    elif any(word in message_lower for word in ['payment', 'money', 'earn', 'setup']):
+        return f"""💳 **PAYMENT SETUP - Let's Get You Earning!**
+
+Great choice! This is the most important step because this is how you'll make money! 💰
+
+**Here's your step-by-step payment setup:**
+
+1. **Get Your Personal Link:**
+   - Go to your dashboard (I'll help you get there)
+   - Look for "Referrals" section
+   - Copy YOUR special link
+
+2. **Set Up Payment Details:**
+   - Add your bank account or PayPal
+   - Verify your identity (just basic info)
+   - Set your payment preferences
+
+3. **Test Your Link:**
+   - Share with one friend first
+   - Make sure payments come to YOU
+
+**Want me to walk you through getting your referral link right now? Type "get my link" and let's do this together!** 🚀
+
+Remember: Every person who buys through YOUR link = money in YOUR pocket! This is how you build your business."""
+
+    # Link sharing responses
+    elif any(word in message_lower for word in ['link', 'share', 'copy', 'paste', 'phone', 'computer']):
+        return f"""📱💻 **SHARING YOUR LINK - Phone & Computer Instructions!**
+
+Excellent question! This is how you'll reach EVERYONE and start making money! Let me give you exact copy/paste instructions:
+
+**📱 ON YOUR PHONE:**
+1. Open your link (from dashboard → referrals)
+2. **COPY:** Press and hold the link → "Copy"
+3. **SHARE:** 
+   - Text: Open messages → paste → send
+   - Facebook: Open app → make post → paste → post
+   - Instagram: Stories → type → paste → share
+   - WhatsApp: Open chat → paste → send
+
+**💻 ON COMPUTER:**
+1. Right-click your link → "Copy link address"
+2. **SHARE:**
+   - Email: Ctrl+V to paste in email
+   - Facebook: Paste in status update
+   - Twitter: Paste in tweet
+   - Copy into messages, forums, anywhere!
+
+**PRO TIP:** Save your link in your phone's notes so you always have it ready! 📝
+
+**Ready to get your link and start sharing? Type "yes" and I'll help you find it right now!**"""
+
+    # Marketing responses
+    elif any(word in message_lower for word in ['market', 'promote', 'advertise', 'sell']):
+        return f"""🎯 **MARKETING MADE SIMPLE - Beginner's Guide!**
+
+Perfect! Marketing sounds scary, but it's really just "telling people about something cool!" Here's your beginner action plan:
+
+**🏃‍♂️ START TODAY (5 minutes):**
+- Tell 3 people you know personally
+- Post on your social media
+- Send to family group chats
+
+**👥 THIS WEEK:**
+- Message 10 friends individually
+- Share in Facebook groups you're in
+- Tell coworkers/neighbors
+
+**📈 ONGOING:**
+- Share your success stories
+- Help others understand the opportunity
+- Keep your link everywhere (email signature, bio, etc.)
+
+**REMEMBER:** You're not "selling" - you're SHARING an opportunity that worked for you! 
+
+**What's the easiest place for you to start? Social media? Text messages? Family? Type your answer and I'll give you exact words to use!** 🚀"""
+
+    # Training/guides responses
+    elif any(word in message_lower for word in ['guide', 'training', 'learn', 'help']):
+        return f"""📚 **YOUR {package_info['guides']} TRAINING GUIDES - Let's Learn!**
+
+You've got an AMAZING resource here! Your {package_info['name']} includes {package_info['guides']} professional training guides written by people who've made millions online! 🎓
+
+**Here's how to access them:**
+1. Go to your main dashboard
+2. Look for "Training Guides" section  
+3. Start with Guide #1 (they're in order for a reason!)
+
+**BEGINNER TIP:** Don't try to read everything at once! Pick ONE guide, read it, DO what it says, then move to the next one.
+
+**Most Important Guides to Start With:**
+- Domain setup guide
+- Payment/earnings guide  
+- Basic marketing guide
+
+**Want me to help you get to your guides right now? Type "show me guides" and I'll walk you through it!**
+
+Remember: Knowledge + Action = Results! 💪"""
+
+    # Empire package business building responses
+    elif any(word in message_lower for word in ['business', 'empire', 'compete', 'takeover', 'take over', 'build my own']):
+        if package_info['name'] == 'Empire Package':
+            return f"""👑 **EMPIRE PACKAGE SPECIAL - BUILD YOUR OWN BUSINESS EMPIRE!**
+
+OH WOW! You've got the Empire Package ($499) - that means you get the ULTIMATE business building secrets! 🚀
+
+Your admin has a special message for Empire customers: **"Good luck trying to take over my business - but if you do, we both win!"** 😄
+
+**HERE'S THE WIN-WIN SECRET:**
+Even if you build a competing business and become MASSIVE, your admin still earns from every second-level referral you bring in! It's genius! 🧠💰
+
+**🏗️ EMPIRE BUSINESS BUILDING ROADMAP:**
+
+**PHASE 1: Master the Basics (Weeks 1-4)**
+- Set up your payment systems
+- Learn advanced marketing techniques  
+- Build your customer base
+
+**PHASE 2: Scale Your Empire (Months 2-6)**
+- Create your own sales funnels
+- Build your own team
+- Develop your unique selling approach
+
+**PHASE 3: Challenge the Master (Month 6+)**
+- Launch competing campaigns
+- Try to "steal" customers (your admin welcomes it!)
+- Build your own referral network
+
+**THE BEAUTIFUL PART:** Every person you bring in who then brings someone else = your admin still earns! Everyone wins! 🎉
+
+**Ready to start building your empire? Type "empire training" for your exclusive business building guides!**"""
+        else:
+            return f"""I love the ambition! Building your own business empire sounds amazing! 🚀
+
+However, the advanced business building secrets are exclusive to our Empire Package ($499) customers. 
+
+Your {package_info['name']} is fantastic for getting started and earning great money! But if you're serious about building a competing business empire, you might want to consider upgrading to Empire Package.
+
+**For now, let's focus on maximizing YOUR current package:**
+- "payment setup" - Start earning immediately
+- "marketing tips" - Grow your current business
+- "training guides" - Master your {package_info['guides']} guides
+
+**Want to explore upgrading to Empire for the business building secrets? Type "upgrade info"**"""
+
+    # Default encouraging response
+    else:
+        empire_options = ""
+        if package_info['name'] == 'Empire Package':
+            empire_options = """
+- "build my empire" - 👑 EXCLUSIVE: Learn to build your own competing business!
+- "takeover strategy" - Challenge your admin (they welcome it!)"""
+
+        return f"""Thanks for that question! 😊 I'm here to help you succeed with your {package_info['name']} business!
+
+Here are the main things I can help you with right now:
+
+🚀 **Type any of these to get started:**
+- "payment setup" - Get earning money ASAP
+- "share my link" - Learn to copy/paste and share
+- "marketing tips" - Simple ways to promote  
+- "training guides" - Access your {package_info['guides']} guides{empire_options}
+- "help" - I'll ask you questions to figure out what you need
+
+**What sounds most important to you right now?** I'm here to guide you step-by-step, and remember - you can always skip ahead if you want!
+
+Your admin personally assigned me to help YOU succeed, so let's make it happen! 💪"""
 
 @app.route('/earnings')
 def earnings():
@@ -1058,6 +1656,164 @@ def customers():
     return render_template_string(customers_html, 
                                  customers=customers,
                                  packages=PACKAGES)
+
+@app.route('/admin/banned-users')
+def admin_banned_users():
+    """Admin interface to view and manage banned users"""
+    if not session.get('logged_in') or session.get('username') != 'admin':
+        return redirect(url_for('login'))
+    
+    banned_users = load_banned_users()
+    
+    admin_html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Security Panel - Banned Users</title>
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); }
+            .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+            .header { background: #fff; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; border: 2px solid #e60000; }
+            .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 2px solid #001f5b; }
+            .ban-entry { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+            .ban-reason { color: #dc3545; font-weight: bold; }
+            .ban-time { color: #6c757d; font-size: 0.9em; }
+            .active-ban { border-left: 4px solid #dc3545; }
+            .expired-ban { border-left: 4px solid #28a745; opacity: 0.7; }
+            .nav-button { display: inline-block; padding: 10px 20px; background: #001f5b; color: white; text-decoration: none; border-radius: 8px; margin: 5px; }
+            .unban-button { background: #28a745; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🛡️ Security Panel</h1>
+                <p><strong>Admin Dashboard:</strong> Monitor and manage chat security violations</p>
+                <div>
+                    <a href="/" class="nav-button">🏠 Dashboard</a>
+                    <a href="/admin/security-logs" class="nav-button">📋 Security Logs</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🚫 Banned Users ({{ banned_count }} total)</h2>
+                {% if banned_users %}
+                    {% for user_id, ban_info in banned_users.items() %}
+                    <div class="ban-entry {% if ban_info.is_active %}active-ban{% else %}expired-ban{% endif %}">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div style="flex: 1;">
+                                <div><strong>User ID:</strong> {{ user_id }}</div>
+                                <div><strong>IP Address:</strong> {{ ban_info.ip }}</div>
+                                <div class="ban-reason"><strong>Reason:</strong> {{ ban_info.reason }}</div>
+                                <div class="ban-time">
+                                    <strong>Banned:</strong> {{ ban_info.banned_at }}<br>
+                                    <strong>Expires:</strong> {{ ban_info.expires }}
+                                    {% if ban_info.is_active %}
+                                        <span style="color: #dc3545; font-weight: bold;"> (ACTIVE)</span>
+                                    {% else %}
+                                        <span style="color: #28a745; font-weight: bold;"> (EXPIRED)</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if ban_info.is_active %}
+                            <div>
+                                <button class="unban-button" onclick="unbanUser('{{ user_id }}')">Unban Now</button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <h3>🎉 No banned users!</h3>
+                        <p>Your chat security system is working, but no violations have been detected yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="card">
+                <h3>🔒 Security Features Active</h3>
+                <ul>
+                    <li>✅ Automatic exploitation attempt detection</li>
+                    <li>✅ 24-hour ban system for policy violations</li>
+                    <li>✅ Real-time chat monitoring</li>
+                    <li>✅ Admin override capabilities</li>
+                </ul>
+                <p><strong>Protected phrases include:</strong> attempts to bypass payment, take over RizzosAI, exploit the system, etc.</p>
+            </div>
+        </div>
+        
+        <script>
+            function unbanUser(userId) {
+                if (confirm('Are you sure you want to unban this user immediately?')) {
+                    fetch('/admin/unban-user', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({user_id: userId})
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Error unbanning user: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: ' + error);
+                    });
+                }
+            }
+        </script>
+    </body>
+    </html>
+    '''
+    
+    # Add status info to banned users
+    from datetime import datetime
+    now = datetime.now()
+    banned_users_with_status = {}
+    
+    for user_id, ban_info in banned_users.items():
+        ban_info_copy = ban_info.copy()
+        try:
+            ban_expiry = datetime.fromisoformat(ban_info['expires'])
+            ban_info_copy['is_active'] = now < ban_expiry
+        except:
+            ban_info_copy['is_active'] = False
+        banned_users_with_status[user_id] = ban_info_copy
+    
+    return render_template_string(admin_html, 
+                                 banned_users=banned_users_with_status,
+                                 banned_count=len(banned_users))
+
+@app.route('/admin/unban-user', methods=['POST'])
+def admin_unban_user():
+    """Admin endpoint to unban a user"""
+    if not session.get('logged_in') or session.get('username') != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'No user ID provided'}), 400
+        
+        banned_users = load_banned_users()
+        if user_id in banned_users:
+            del banned_users[user_id]
+            save_banned_users(banned_users)
+            print(f"Admin unbanned user: {user_id}")
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'User not found in ban list'}), 404
+            
+    except Exception as e:
+        print(f"Error unbanning user: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/admin-access')
 def admin_access():
