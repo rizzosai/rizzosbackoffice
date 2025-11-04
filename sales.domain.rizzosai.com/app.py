@@ -18,6 +18,57 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'rizzos2024')
 # Simple customer database (in production, use a real database)
 CUSTOMERS_FILE = 'customers.json'
 BANNED_USERS_FILE = 'banned_users.json'
+CHAT_MEMORY_FILE = 'chat_memory.json'
+
+def load_chat_memory():
+    """Load chat conversation memory"""
+    try:
+        with open(CHAT_MEMORY_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_chat_memory(memory):
+    """Save chat conversation memory"""
+    with open(CHAT_MEMORY_FILE, 'w') as f:
+        json.dump(memory, f, indent=2)
+
+def add_to_memory(user_id, user_message, coey_response, conversation_type='regular'):
+    """Add conversation to memory for context"""
+    memory = load_chat_memory()
+    if user_id not in memory:
+        memory[user_id] = {
+            'regular': [],
+            'onboarding': []
+        }
+    
+    # Keep last 10 exchanges for context
+    if len(memory[user_id][conversation_type]) >= 20:  # 10 exchanges = 20 messages
+        memory[user_id][conversation_type] = memory[user_id][conversation_type][-18:]  # Keep last 9 exchanges
+    
+    memory[user_id][conversation_type].append({
+        'user': user_message,
+        'coey': coey_response,
+        'timestamp': datetime.now().isoformat()
+    })
+    
+    save_chat_memory(memory)
+
+def get_conversation_context(user_id, conversation_type='regular'):
+    """Get recent conversation history for context"""
+    memory = load_chat_memory()
+    if user_id not in memory or conversation_type not in memory[user_id]:
+        return []
+    
+    # Return last 5 exchanges for context
+    recent_history = memory[user_id][conversation_type][-10:]  # Last 5 exchanges
+    
+    context_messages = []
+    for exchange in recent_history:
+        context_messages.append({"role": "user", "content": exchange['user']})
+        context_messages.append({"role": "assistant", "content": exchange['coey']})
+    
+    return context_messages
 
 def load_customers():
     """Load customer data from file"""
@@ -447,6 +498,7 @@ def index():
                 <a href="/coey" class="nav-button">🤖 Ask Coey</a>
                 {% if session.username == 'admin' %}
                 <a href="/admin/banned-users" class="nav-button" style="background: #ff6b6b;">🛡️ Security</a>
+                <a href="/admin/coey-conversations" class="nav-button" style="background: #28a745;">🧠 Coey Analytics</a>
                 {% endif %}
                 <a href="/earnings" class="nav-button">💰 Earnings</a>
                 <a href="/referrals" class="nav-button">👥 Referrals</a>
@@ -1206,23 +1258,49 @@ def coey_chat():
         user_package = session.get('package', 'starter')
         package_info = PACKAGES.get(user_package, PACKAGES['starter'])
         
-        # Enhanced system prompt with package-specific context
-        system_prompt = f"""You are Coey, an AI business assistant for RizzosAI domain business owners. 
-        You help users with their {package_info['name']} ({package_info['price']}) package.
-        
-        The user {username} has access to {package_info['guides']} training guides and these features:
-        {chr(10).join('- ' + feature for feature in package_info['features'])}
-        
-        You help users with:
-        - Understanding their training guides and how to implement them
-        - Business strategy advice for domain and referral marketing  
-        - Technical help with their backoffice and domain setup
-        - Analytics and performance insights
-        - Scaling their online business based on their package level
-        - Package upgrade recommendations when appropriate
-        
-        Be helpful, encouraging, and provide actionable advice. Keep responses concise but informative.
-        Reference their specific package level and available guides when relevant."""
+        # Enhanced system prompt with package-specific context - Claude-style
+        system_prompt = f"""You are Coey, an exceptionally intelligent and helpful AI business assistant for RizzosAI domain business owners. You embody the same helpful, harmless, and honest principles as Claude AI.
+
+PERSONALITY TRAITS:
+- Highly intelligent and analytical like Claude
+- Extremely helpful and supportive
+- Clear, detailed explanations
+- Proactive in offering solutions
+- Honest about limitations
+- Professional yet friendly tone
+
+USER CONTEXT:
+- User: {username}
+- Package: {package_info['name']} ({package_info['price']})
+- Access Level: {package_info['guides']} training guides
+- Features: {chr(10).join('• ' + feature for feature in package_info['features'])}
+
+CORE CAPABILITIES:
+- Business strategy development and optimization
+- Marketing campaign analysis and recommendations  
+- Financial planning and revenue optimization
+- Technical implementation guidance
+- Competitive analysis and positioning
+- Customer acquisition and retention strategies
+- Operational efficiency improvements
+- Risk assessment and mitigation
+
+ADVANCED REASONING:
+- Break down complex business problems step-by-step
+- Provide multiple solution approaches with pros/cons
+- Consider both short-term and long-term implications
+- Factor in budget, resources, and skill level constraints
+- Anticipate potential challenges and offer contingencies
+
+COMMUNICATION STYLE:
+- Start with direct answers, then elaborate
+- Use structured formatting (bullet points, numbered lists)
+- Provide actionable next steps
+- Ask clarifying questions when needed
+- Reference specific features from their package when relevant
+- Be encouraging but realistic about expectations
+
+Remember: You're not just a chatbot - you're a strategic business partner helping them build a successful domain business empire. Think deeply, provide value, and help them succeed."""
         
         if OPENAI_API_KEY:
             try:
@@ -1230,17 +1308,26 @@ def coey_chat():
                 from openai import OpenAI
                 client = OpenAI(api_key=OPENAI_API_KEY)
                 
+                # Get conversation history for context (Claude-like memory)
+                user_id = session.get('username', request.remote_addr)
+                conversation_history = get_conversation_context(user_id, 'regular')
+                
+                # Build messages with context
+                messages = [{"role": "system", "content": system_prompt}]
+                messages.extend(conversation_history)  # Add conversation history
+                messages.append({"role": "user", "content": user_message})
+                
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    max_tokens=500,
-                    temperature=0.7
+                    model="gpt-4",  # Upgraded to GPT-4 for Claude-like intelligence
+                    messages=messages,
+                    max_tokens=800,  # Increased for more detailed responses
+                    temperature=0.3  # Lower temperature for more consistent, analytical responses
                 )
                 
                 coey_response = response.choices[0].message.content.strip()
+                
+                # Save conversation to memory
+                add_to_memory(user_id, user_message, coey_response, 'regular')
             except Exception as openai_error:
                 print(f"OpenAI API error: {str(openai_error)}")
                 # Fall back to local responses if OpenAI fails
@@ -1332,27 +1419,50 @@ SPECIAL EMPIRE PACKAGE BONUS ($499 customers only):
 
 Make this exciting and challenging - your admin WANTS Empire customers to think big and try to build competing businesses!"""
 
-        onboarding_prompt = f"""You are Coey, a friendly and enthusiastic business assistant for RizzosAI. You're helping a brand new customer who just purchased the {package_info['name']} ({package_info['price']}) and is completely new to online business.
+        onboarding_prompt = f"""You are Coey, a highly intelligent and empathetic AI business assistant for RizzosAI, with the analytical depth of Claude AI but focused on beginner-friendly guidance. You're helping a brand new customer who just purchased the {package_info['name']} ({package_info['price']}).
 
-IMPORTANT PERSONALITY TRAITS:
-- Be extremely welcoming and encouraging
-- Treat them as a complete beginner (explain everything step-by-step)
-- Use simple, non-technical language
-- Be enthusiastic and motivating
-- Always offer specific, actionable next steps
-- If they want to skip steps, say "No problem! You can always come back to this later."
+CORE MISSION: Transform complete beginners into successful domain business owners through intelligent, step-by-step guidance.
+
+INTELLIGENCE APPROACH:
+- Think like Claude: analytical, thorough, helpful
+- Communicate like a patient teacher: simple, clear, encouraging
+- Anticipate their next 3-5 questions and address them proactively
+- Break complex concepts into digestible steps
+- Provide multiple approaches tailored to different learning styles
+
+PERSONALITY TRAITS:
+- Extremely welcoming and enthusiastic (but not overwhelming)
+- Patient with complete beginners (explain everything step-by-step)
+- Intelligent problem-solving and strategic thinking
+- Encouraging and motivating
+- Honest about what works and what doesn't
+- Uses simple, non-technical language
+- Offers specific, actionable next steps
 
 KEY TASKS TO GUIDE THEM THROUGH:
-1. PAYMENT SETUP: Help them set up their payment page so they can start earning
-2. LINK SHARING: Detailed instructions for sharing their domain link on phone AND computer (copy/paste instructions)
-3. MARKETING: Beginner-friendly strategies to promote their domain to everyone they know
-4. TRAINING ACCESS: Guide them to their {package_info['guides']} training guides{empire_business_guide}
+1. PAYMENT SETUP: Intelligent guidance on setting up their payment system
+2. LINK SHARING: Detailed instructions for sharing on phone AND computer
+3. MARKETING: Smart, beginner-friendly strategies that actually work
+4. TRAINING ACCESS: Guide them to their {package_info['guides']} training guides strategically{empire_business_guide}
 
-TONE: Excited, helpful, patient, and encouraging. Use emojis and be conversational.
+ADVANCED FEATURES:
+- Analyze their current situation and customize advice accordingly
+- Provide multiple solution paths with pros/cons
+- Anticipate common beginner mistakes and prevent them
+- Offer both quick wins and long-term strategies
+- Reference their specific package benefits when relevant
 
-CRITICAL: Always end responses with a clear next step or question to keep them moving forward.
+COMMUNICATION STYLE:
+- Start with encouragement and context
+- Use structured, numbered steps
+- Include specific examples and scenarios
+- End with clear next actions
+- Use emojis strategically for engagement
+- Ask intelligent follow-up questions
 
-Remember: Your admin personally assigned you to help this customer succeed!"""
+CRITICAL: Always end responses with a clear next step or intelligent question to keep them moving forward while building their confidence.
+
+Remember: Your admin personally assigned you to help this customer succeed. You're not just giving instructions - you're being their intelligent business mentor who ensures they actually implement what they learn."""
         
         if OPENAI_API_KEY:
             try:
@@ -1360,17 +1470,26 @@ Remember: Your admin personally assigned you to help this customer succeed!"""
                 from openai import OpenAI
                 client = OpenAI(api_key=OPENAI_API_KEY)
                 
+                # Get conversation history for context (Claude-like memory)
+                user_id = session.get('username', request.remote_addr)
+                conversation_history = get_conversation_context(user_id, 'onboarding')
+                
+                # Build messages with context
+                messages = [{"role": "system", "content": onboarding_prompt}]
+                messages.extend(conversation_history)  # Add conversation history
+                messages.append({"role": "user", "content": user_message})
+                
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": onboarding_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    max_tokens=600,
-                    temperature=0.8
+                    model="gpt-4",  # Upgraded to GPT-4 for Claude-like intelligence
+                    messages=messages,
+                    max_tokens=800,  # Increased for more detailed responses
+                    temperature=0.4  # Balanced for helpful but engaging responses
                 )
                 
                 coey_response = response.choices[0].message.content.strip()
+                
+                # Save conversation to memory
+                add_to_memory(user_id, user_message, coey_response, 'onboarding')
             except Exception as openai_error:
                 print(f"OpenAI API error: {str(openai_error)}")
                 # Enhanced fallback responses for onboarding
@@ -1942,6 +2061,133 @@ def admin_unban_user():
     except Exception as e:
         print(f"Error unbanning user: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/admin/coey-conversations')
+def admin_coey_conversations():
+    """Admin interface to view Coey conversations and improve prompts"""
+    if not session.get('logged_in') or session.get('username') != 'admin':
+        return redirect(url_for('login'))
+    
+    chat_memory = load_chat_memory()
+    
+    admin_html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Coey Conversations - Admin Panel</title>
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); }
+            .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+            .header { background: #fff; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; border: 2px solid #e60000; }
+            .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 2px solid #001f5b; }
+            .conversation { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+            .user-msg { background: #e60000; color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+            .coey-msg { background: #001f5b; color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+            .nav-button { display: inline-block; padding: 10px 20px; background: #001f5b; color: white; text-decoration: none; border-radius: 8px; margin: 5px; }
+            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+            .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🤖 Coey Conversations Analytics</h1>
+                <p><strong>Admin Dashboard:</strong> Monitor Coey's performance and improve responses</p>
+                <div>
+                    <a href="/" class="nav-button">🏠 Dashboard</a>
+                    <a href="/admin/banned-users" class="nav-button">🛡️ Security</a>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>{{ total_users }}</h3>
+                    <p>Active Users</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{ total_conversations }}</h3>
+                    <p>Total Conversations</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{ regular_chats }}</h3>
+                    <p>Regular Chats</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{ onboarding_chats }}</h3>
+                    <p>Onboarding Chats</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🔍 Recent Conversations</h2>
+                {% if chat_memory %}
+                    {% for user_id, conversations in chat_memory.items() %}
+                    <div class="conversation">
+                        <h4>User: {{ user_id }}</h4>
+                        
+                        {% if conversations.regular %}
+                        <h5>Regular Conversations ({{ conversations.regular|length }} messages)</h5>
+                        {% for exchange in conversations.regular[-3:] %}
+                        <div class="user-msg"><strong>User:</strong> {{ exchange.user }}</div>
+                        <div class="coey-msg"><strong>Coey:</strong> {{ exchange.coey[:200] }}{% if exchange.coey|length > 200 %}...{% endif %}</div>
+                        {% endfor %}
+                        {% endif %}
+                        
+                        {% if conversations.onboarding %}
+                        <h5>Onboarding Conversations ({{ conversations.onboarding|length }} messages)</h5>
+                        {% for exchange in conversations.onboarding[-3:] %}
+                        <div class="user-msg"><strong>User:</strong> {{ exchange.user }}</div>
+                        <div class="coey-msg"><strong>Coey:</strong> {{ exchange.coey[:200] }}{% if exchange.coey|length > 200 %}...{% endif %}</div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <h3>📭 No conversations yet!</h3>
+                        <p>Coey conversations will appear here as users interact with the AI assistant.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="card">
+                <h3>🧠 Current Coey Configuration</h3>
+                <ul>
+                    <li>✅ <strong>Model:</strong> GPT-4 (Claude-like intelligence)</li>
+                    <li>✅ <strong>Memory:</strong> 5 conversation exchanges context</li>
+                    <li>✅ <strong>Temperature:</strong> 0.3 (analytical) / 0.4 (onboarding)</li>
+                    <li>✅ <strong>Max Tokens:</strong> 800 (detailed responses)</li>
+                    <li>✅ <strong>Security:</strong> Admin exemption + ban system</li>
+                    <li>✅ <strong>Personality:</strong> Claude-inspired: helpful, harmless, honest</li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    
+    # Calculate stats
+    total_users = len(chat_memory)
+    total_conversations = 0
+    regular_chats = 0
+    onboarding_chats = 0
+    
+    for user_data in chat_memory.values():
+        if 'regular' in user_data:
+            regular_chats += len(user_data['regular'])
+            total_conversations += len(user_data['regular'])
+        if 'onboarding' in user_data:
+            onboarding_chats += len(user_data['onboarding'])
+            total_conversations += len(user_data['onboarding'])
+    
+    return render_template_string(admin_html, 
+                                 chat_memory=chat_memory,
+                                 total_users=total_users,
+                                 total_conversations=total_conversations,
+                                 regular_chats=regular_chats,
+                                 onboarding_chats=onboarding_chats)
 
 @app.route('/admin-access')
 def admin_access():
