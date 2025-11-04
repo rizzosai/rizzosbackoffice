@@ -9,8 +9,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'rizzos-secret-key-2024-secure')
 
 # Configure OpenAI for Coey
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+# Note: OpenAI client is created in the chat function with the newer API
 
 # Admin credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
@@ -799,18 +798,26 @@ def coey_chat():
         Reference their specific package level and available guides when relevant."""
         
         if OPENAI_API_KEY:
-            # Use OpenAI for actual AI responses
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
-            
-            coey_response = response.choices[0].message.content.strip()
+            try:
+                # Use OpenAI for actual AI responses (updated API format)
+                from openai import OpenAI
+                client = OpenAI(api_key=OPENAI_API_KEY)
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+                
+                coey_response = response.choices[0].message.content.strip()
+            except Exception as openai_error:
+                print(f"OpenAI API error: {str(openai_error)}")
+                # Fall back to local responses if OpenAI fails
+                coey_response = f"Hello {username}! I'm having trouble connecting to my advanced AI features right now, but I can still help you! With your {package_info['name']}, you have access to {package_info['guides']} expert training guides. What would you like to know about your business?"
         else:
             # Enhanced fallback responses
             fallback_responses = {
