@@ -374,6 +374,19 @@ PACKAGES = {
             'Includes your own cloud hosting account',
             'You can sell cloud hosting to others and earn more'
         ]
+    },
+    'empire-trial': {
+        'name': 'Empire Free Trial',
+        'price': 'FREE',
+        'guides': 5,  # Limited access for trial
+        'level': 1,   # Same access as starter for trial
+        'features': [
+            '🎯 FREE 7-day trial of Empire features',
+            'Access to 5 starter training guides',
+            'Basic referral system access',
+            'Limited dashboard features',
+            'Upgrade anytime to full Empire package'
+        ]
     }
 }
 
