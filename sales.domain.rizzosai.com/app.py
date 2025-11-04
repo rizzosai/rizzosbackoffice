@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, url_for, session, flash, render_temp
 import os
 import openai
 from datetime import datetime
+import json
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rizzos-secret-key-2024-secure')
@@ -14,6 +15,55 @@ if OPENAI_API_KEY:
 # Admin credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'rizzos2024')
+
+# Simple customer database (in production, use a real database)
+CUSTOMERS_FILE = 'customers.json'
+
+def load_customers():
+    """Load customer data from file"""
+    try:
+        if os.path.exists(CUSTOMERS_FILE):
+            with open(CUSTOMERS_FILE, 'r') as f:
+                return json.load(f)
+    except:
+        pass
+    return {}
+
+def save_customers(customers):
+    """Save customer data to file"""
+    try:
+        with open(CUSTOMERS_FILE, 'w') as f:
+            json.dump(customers, f, indent=2)
+    except:
+        pass
+
+def add_customer(email, package, purchase_date=None):
+    """Add or update customer with package"""
+    customers = load_customers()
+    if purchase_date is None:
+        purchase_date = datetime.now().isoformat()
+    
+    # If customer exists, upgrade their package if new one is higher level
+    if email in customers:
+        current_level = PACKAGES.get(customers[email]['package'], {}).get('level', 0)
+        new_level = PACKAGES.get(package, {}).get('level', 0)
+        if new_level > current_level:
+            customers[email]['package'] = package
+            customers[email]['upgraded_date'] = purchase_date
+    else:
+        customers[email] = {
+            'package': package,
+            'purchase_date': purchase_date,
+            'email': email
+        }
+    
+    save_customers(customers)
+    return customers[email]
+
+def get_customer_package(email):
+    """Get customer's current package"""
+    customers = load_customers()
+    return customers.get(email, {}).get('package', 'starter')
 
 # Package definitions with guide counts
 PACKAGES = {
@@ -190,6 +240,7 @@ def index():
                 <a href="/coey" class="nav-button">🤖 Ask Coey</a>
                 <a href="/earnings" class="nav-button">💰 Earnings</a>
                 <a href="/referrals" class="nav-button">👥 Referrals</a>
+                <a href="/customers" class="nav-button">👨‍💼 Customers</a>
                 <a href="/upgrade" class="nav-button">⬆️ Upgrade</a>
                 <a href="/logout" class="nav-button">🚪 Logout</a>
             </div>
@@ -259,19 +310,32 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        customer_email = request.form.get('email', '')
         
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['logged_in'] = True
             session['username'] = username
             
-            # Check for package parameter from redirect
+            # Check for package parameter from redirect or customer email
             package_type = request.args.get('package', 'starter')
+            
+            # If customer email provided, get their actual package
+            if customer_email:
+                customer_package = get_customer_package(customer_email)
+                if customer_package:
+                    package_type = customer_package
+                    session['customer_email'] = customer_email
+                    flash(f'Welcome back! Your {PACKAGES[package_type]["name"]} is ready.', 'success')
+            
+            # Validate and set package
             if package_type in PACKAGES:
                 session['package'] = package_type
             else:
                 session['package'] = 'starter'
             
-            flash(f'Welcome! You have {PACKAGES[session["package"]]["name"]} access.', 'success')
+            if not customer_email:
+                flash(f'Welcome! You have {PACKAGES[session["package"]]["name"]} access.', 'success')
+            
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password!', 'error')
@@ -334,6 +398,11 @@ def login():
                     <input type="password" id="password" name="password" required>
                 </div>
                 
+                <div class="form-group">
+                    <label for="email">Customer Email (Optional)</label>
+                    <input type="email" id="email" name="email" placeholder="Enter your purchase email to access your package">
+                </div>
+                
                 <button type="submit" class="login-button">🔐 Login to Backoffice</button>
             </form>
             
@@ -348,6 +417,91 @@ def login():
     return render_template_string(login_html, 
                                  package_type=package_type, 
                                  packages=PACKAGES)
+
+@app.route('/purchase-success')
+def purchase_success():
+    """Handle successful Stripe purchases and redirect to login with package"""
+    package_type = request.args.get('package', 'starter')
+    customer_email = request.args.get('email', '')
+    
+    # Validate package type
+    if package_type not in PACKAGES:
+        package_type = 'starter'
+    
+    # If we have customer email, save their package purchase
+    if customer_email:
+        add_customer(customer_email, package_type)
+        session['customer_email'] = customer_email
+        flash(f'🎉 Purchase successful! Your {PACKAGES[package_type]["name"]} is ready.', 'success')
+    else:
+        flash(f'🎉 Welcome to {PACKAGES[package_type]["name"]}! Please create your account.', 'success')
+    
+    # Store package in session for immediate access
+    session['package'] = package_type
+    
+    # Show success page with login prompt
+    success_html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Purchase Successful - RizzosAI</title>
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #e60000 0%, #fff 50%, #001f5b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+            .success-container { background: white; border-radius: 12px; padding: 40px; max-width: 500px; width: 90%; text-align: center; border: 3px solid #28a745; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            .success-icon { font-size: 4em; color: #28a745; margin-bottom: 20px; }
+            .package-badge { background: linear-gradient(135deg, #e60000, #001f5b); color: white; padding: 15px 25px; border-radius: 25px; display: inline-block; font-weight: bold; margin: 20px 0; font-size: 1.2em; }
+            .features-list { text-align: left; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .login-button { background: #28a745; color: white; padding: 15px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 20px; }
+            .login-button:hover { background: #218838; }
+            .alert { padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        </style>
+    </head>
+    <body>
+        <div class="success-container">
+            <div class="success-icon">🎉</div>
+            <h1 style="color: #28a745; margin-bottom: 10px;">Purchase Successful!</h1>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <div class="package-badge">{{ package_info.name }} - {{ package_info.price }}</div>
+            
+            <div class="features-list">
+                <h3 style="color: #001f5b; margin-top: 0;">What You Get:</h3>
+                <ul>
+                    <li><strong>{{ package_info.guides }} Expert Training Guides</strong></li>
+                    {% for feature in package_info.features %}
+                    <li>{{ feature }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <p style="color: #666; margin: 20px 0;">Click below to access your exclusive training materials and start building your business!</p>
+            
+            <a href="/login?package={{ package_type }}" class="login-button">🚀 Access Your Training Now</a>
+            
+            <p style="margin-top: 30px; font-size: 0.9em; color: #666;">
+                <strong>Login Credentials:</strong><br>
+                Username: admin<br>
+                Password: rizzos2024
+            </p>
+        </div>
+    </body>
+    </html>
+    '''
+    
+    package_info = PACKAGES[package_type]
+    return render_template_string(success_html, 
+                                 package_type=package_type,
+                                 package_info=package_info,
+                                 customer_email=customer_email)
 
 @app.route('/guide/<guide_id>')
 def view_guide(guide_id):
@@ -816,6 +970,87 @@ def logout():
     session.clear()
     flash('You have been logged out.', 'success')
     return redirect(url_for('login'))
+
+@app.route('/customers')
+def customers():
+    """Customer management page"""
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    
+    customers = load_customers()
+    
+    customers_html = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Customer Management - RizzosAI</title>
+        <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; background: #f8f9fa; }
+            .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+            .header { background: white; border-radius: 12px; padding: 30px; margin-bottom: 20px; text-align: center; border: 2px solid #e60000; }
+            .customers-table { background: white; border-radius: 12px; padding: 30px; border: 2px solid #e60000; overflow-x: auto; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background: #f8f9fa; font-weight: bold; color: #001f5b; }
+            .package-badge { padding: 4px 12px; border-radius: 15px; font-size: 0.9em; font-weight: bold; }
+            .starter { background: #e3f2fd; color: #1976d2; }
+            .pro { background: #f3e5f5; color: #7b1fa2; }
+            .elite { background: #fff3e0; color: #f57c00; }
+            .empire { background: #e8f5e8; color: #388e3c; }
+            .no-customers { text-align: center; color: #666; padding: 40px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>👥 Customer Management</h1>
+                <a href="/" style="background: #001f5b; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">← Back to Dashboard</a>
+            </div>
+            
+            <div class="customers-table">
+                <h2>Recent Purchases</h2>
+                {% if customers %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Package</th>
+                            <th>Purchase Date</th>
+                            <th>Guides Access</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for email, customer in customers.items() %}
+                        <tr>
+                            <td>{{ email }}</td>
+                            <td>
+                                <span class="package-badge {{ customer.package }}">
+                                    {{ packages[customer.package].name }}
+                                </span>
+                            </td>
+                            <td>{{ customer.purchase_date[:10] if customer.purchase_date else 'Unknown' }}</td>
+                            <td>{{ packages[customer.package].guides }} guides</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="no-customers">
+                    <h3>No customers yet</h3>
+                    <p>Customer purchases will appear here automatically when people buy through your sales page.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </body>
+    </html>
+    '''
+    
+    return render_template_string(customers_html, 
+                                 customers=customers,
+                                 packages=PACKAGES)
 
 @app.route('/admin-access')
 def admin_access():
