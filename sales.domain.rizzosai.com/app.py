@@ -76,37 +76,165 @@ def detect_exploitation_attempt(message):
     """Detect if user is trying to exploit or cheat the system"""
     message_lower = message.lower()
     
-    # Red flags for exploitation attempts
+    # FIRST: Check for legitimate business/marketing exceptions - these are ALLOWED
+    legitimate_business_phrases = [
+        'how to market',
+        'how to advertise',
+        'how to promote',
+        'marketing strategies',
+        'marketing tips',
+        'marketing advice',
+        'how to sell',
+        'sales strategies',
+        'business strategies',
+        'how to compete',
+        'competitive strategies',
+        'how to grow my business',
+        'how to expand',
+        'business development',
+        'marketing techniques',
+        'promotion methods',
+        'advertising methods',
+        'how to attract customers',
+        'customer acquisition',
+        'lead generation',
+        'how to succeed',
+        'success strategies',
+        'business success',
+        'how to make money',
+        'revenue strategies',
+        'profit strategies',
+        'business growth',
+        'scaling business',
+        'market penetration',
+        'competitive advantage',
+        'market research',
+        'target audience',
+        'brand building',
+        'social media marketing',
+        'content marketing',
+        'email marketing',
+        'digital marketing',
+        'online marketing',
+        'marketing campaigns',
+        'marketing plan'
+    ]
+    
+    # If message contains legitimate business/marketing terms, it's allowed
+    for phrase in legitimate_business_phrases:
+        if phrase in message_lower:
+            return False  # NOT an exploitation attempt
+    
+    # Red flags for exploitation attempts - with spelling variations
     exploitation_phrases = [
+        # Direct attempts on RizzosAI (all variations)
         'take over rizzosai',
-        'takeover rizzosai', 
+        'takeover rizzosai',
+        'take over rizosai',
+        'takeover rizosai', 
+        'take over rizzos ai',
+        'takeover rizzos ai',
+        'take over rizzo',
+        'takeover rizzo',
+        'take over rizos',
+        'takeover rizos',
+        'take over this business',
+        'takeover this business',
+        'take over your business',
+        'takeover your business',
+        
+        # Payment bypass attempts
         'without paying',
         'without payment',
         'bypass payment',
-        'free access',
-        'hack rizzosai',
-        'steal from rizzosai',
-        'cheat the system',
-        'exploit rizzosai',
-        'get around payment',
-        'avoid paying',
         'skip payment',
+        'avoid paying',
+        'get around payment',
+        'free access',
         'free empire',
         'free pro',
         'free elite',
+        'free starter',
+        'no payment',
+        'dont pay',
+        "don't pay",
+        'refuse to pay',
+        
+        # System exploitation
+        'hack rizzosai',
+        'hack rizosai',
+        'hack rizzo',
+        'steal from rizzosai',
+        'steal from rizosai',
+        'cheat the system',
+        'exploit rizzosai',
+        'exploit rizosai',
+        'exploit rizzo',
         'crack the system',
+        'break the system',
+        
+        # Competition/replacement attempts (malicious intent)
         'beat rizzosai',
-        'compete with rizzosai',
+        'beat rizosai',
+        'beat rizzo',
         'replace rizzosai',
-        'overthrow',
+        'replace rizosai',
+        'replace rizzo',
+        'overthrow rizzosai',
+        'overthrow rizosai',
+        'overthrow rizzo',
         'undercut rizzosai',
+        'undercut rizosai',
+        'undercut rizzo',
+        'destroy rizzosai',
+        'destroy rizosai',
+        'ruin rizzosai',
+        'ruin rizosai',
+        
+        # Business copying/stealing
         'steal customers',
         'copy rizzosai business',
+        'copy rizosai business',
+        'copy rizzo business',
         'duplicate rizzosai',
-        'clone rizzosai'
+        'duplicate rizosai',
+        'duplicate rizzo',
+        'clone rizzosai',
+        'clone rizosai',
+        'clone rizzo',
+        'steal your idea',
+        'copy your model',
+        'replicate your system',
+        
+        # Alternative phrasing for theft/exploitation
+        'get free stuff',
+        'access without buying',
+        'use without purchase',
+        'get everything free',
+        'all features free',
+        'premium for free',
+        'empire package free',
+        'pro package free',
+        'elite package free'
     ]
     
-    return any(phrase in message_lower for phrase in exploitation_phrases)
+    # Check direct phrase matches for exploitation
+    for phrase in exploitation_phrases:
+        if phrase in message_lower:
+            return True
+    
+    # Check company name + malicious intent combinations (but NOT marketing/business terms)
+    company_variations = ['rizzosai', 'rizosai', 'rizzos ai', 'rizzo', 'rizos', 'rizzos']
+    malicious_intents = ['take over', 'takeover', 'beat', 'replace', 'steal', 'hack', 'exploit', 'overthrow', 'undercut', 'duplicate', 'clone', 'destroy', 'ruin']
+    
+    for company in company_variations:
+        for intent in malicious_intents:
+            if company in message_lower and intent in message_lower:
+                # Double check it's not a legitimate business question
+                if not any(legit in message_lower for legit in ['how to', 'marketing', 'strategy', 'business', 'legally', 'ethically']):
+                    return True
+    
+    return False
 
 def save_customers(customers):
     """Save customer data to file"""
@@ -1062,7 +1190,7 @@ def coey_chat():
             if session.get('username') == 'admin':
                 # Admin testing the security system - show test response instead of banning
                 return jsonify({
-                    'response': '🔒 **ADMIN SECURITY TEST RESPONSE** 🔒\n\nI can\'t show you this information at this time due to security protocols.\n\n**Security System Status:** ✅ WORKING\n**Your Request:** Detected as potential exploitation attempt\n**Action Taken:** None (Admin Override Active)\n\n*Note: Regular users would be banned for 24 hours for this type of request. You are exempt as admin.*',
+                    'response': f'🔒 **ADMIN SECURITY TEST RESPONSE** 🔒\n\nI can\'t show you this information at this time due to security protocols.\n\n**Security System Status:** ✅ WORKING\n**Your Request:** "{user_message[:50]}..." \n**Detection:** Potential exploitation attempt detected\n**Action Taken:** None (Admin Override Active)\n**Variations Protected:** All RizzosAI spelling variations (rizzosai, rizosai, rizzo, etc.)\n\n*Note: Regular users would be banned for 24 hours for this type of request. You are exempt as admin.*',
                     'admin_test': True
                 })
             else:
