@@ -1331,7 +1331,10 @@ Remember: You're not just a chatbot - you're a strategic business partner helpin
             except Exception as openai_error:
                 print(f"OpenAI API error: {str(openai_error)}")
                 # Fall back to local responses if OpenAI fails
-                coey_response = f"Hello {username}! I'm having trouble connecting to my advanced AI features right now, but I can still help you! With your {package_info['name']}, you have access to {package_info['guides']} expert training guides. What would you like to know about your business?"
+                if "401" in str(openai_error) or "invalid_api_key" in str(openai_error):
+                    coey_response = f"🤖 Hi {username}! I'm temporarily running in offline mode while our admin updates my AI systems. I can still help you with basic questions about your {package_info['name']} package! You have access to {package_info['guides']} expert training guides. What would you like to know about your business setup or guides?"
+                else:
+                    coey_response = f"Hello {username}! I'm having trouble connecting to my advanced AI features right now, but I can still help you! With your {package_info['name']}, you have access to {package_info['guides']} expert training guides. What would you like to know about your business?"
         else:
             # Enhanced fallback responses
             fallback_responses = {
@@ -1493,7 +1496,10 @@ Remember: Your admin personally assigned you to help this customer succeed. You'
             except Exception as openai_error:
                 print(f"OpenAI API error: {str(openai_error)}")
                 # Enhanced fallback responses for onboarding
-                coey_response = get_onboarding_fallback_response(user_message, package_info)
+                if "401" in str(openai_error) or "invalid_api_key" in str(openai_error):
+                    coey_response = f"🤖 Welcome! I'm Coey, running in offline mode while our systems update. Don't worry - I can still guide you through setting up your {package_info['name']} business! Let's start with the basics. What would you like to know about getting started with your domain business?"
+                else:
+                    coey_response = get_onboarding_fallback_response(user_message, package_info)
         else:
             # Use enhanced fallback responses for onboarding
             coey_response = get_onboarding_fallback_response(user_message, package_info)
