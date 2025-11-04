@@ -1,6 +1,5 @@
 from flask import Flask, request, redirect, url_for, session, flash, render_template_string, jsonify
 import os
-import openai
 from datetime import datetime, timedelta
 import json
 
@@ -1333,6 +1332,8 @@ Remember: You're not just a chatbot - you're a strategic business partner helpin
                 # Fall back to local responses if OpenAI fails
                 if "401" in str(openai_error) or "invalid_api_key" in str(openai_error):
                     coey_response = f"🤖 Hi {username}! I'm temporarily running in offline mode while our admin updates my AI systems. I can still help you with basic questions about your {package_info['name']} package! You have access to {package_info['guides']} expert training guides. What would you like to know about your business setup or guides?"
+                elif "proxies" in str(openai_error) or "unexpected keyword argument" in str(openai_error):
+                    coey_response = f"🔧 Hi {username}! I'm updating my connection settings. While I do that, I can still help you with your {package_info['name']} business! You have {package_info['guides']} expert guides to explore. What would you like to know about setting up your domain business?"
                 else:
                     coey_response = f"Hello {username}! I'm having trouble connecting to my advanced AI features right now, but I can still help you! With your {package_info['name']}, you have access to {package_info['guides']} expert training guides. What would you like to know about your business?"
         else:
@@ -1498,6 +1499,8 @@ Remember: Your admin personally assigned you to help this customer succeed. You'
                 # Enhanced fallback responses for onboarding
                 if "401" in str(openai_error) or "invalid_api_key" in str(openai_error):
                     coey_response = f"🤖 Welcome! I'm Coey, running in offline mode while our systems update. Don't worry - I can still guide you through setting up your {package_info['name']} business! Let's start with the basics. What would you like to know about getting started with your domain business?"
+                elif "proxies" in str(openai_error) or "unexpected keyword argument" in str(openai_error):
+                    coey_response = f"🔧 Welcome! I'm Coey, and I'm just updating my connection settings. No worries - I can still guide you through setting up your {package_info['name']} business perfectly! What would you like to start with: payment setup, domain marketing, or sharing your referral link?"
                 else:
                     coey_response = get_onboarding_fallback_response(user_message, package_info)
         else:
