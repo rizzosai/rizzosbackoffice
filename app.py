@@ -6,7 +6,7 @@ import json
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'rizzos-secret-key-2024-secure')
 
-# Configure OpenAI for Coey - BULLETPROOF VERSION DEPLOYED
+# Configure OpenAI for Coey - FRESH RENDER SERVICE DEPLOYMENT
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 
 # Admin credentials
