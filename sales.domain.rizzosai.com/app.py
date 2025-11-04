@@ -378,14 +378,16 @@ PACKAGES = {
     'empire-trial': {
         'name': 'Empire Free Trial',
         'price': 'FREE',
-        'guides': 5,  # Limited access for trial
-        'level': 1,   # Same access as starter for trial
+        'guides': 3,   # Very limited - just enough to hook them
+        'level': 1,    # Starter level only 
         'features': [
-            '🎯 FREE 7-day trial of Empire features',
-            'Access to 5 starter training guides',
-            'Basic referral system access',
-            'Limited dashboard features',
-            'Upgrade anytime to full Empire package'
+            '🎯 FREE 3-day Empire preview (normally $499)',
+            'Access to 3 starter guides only',
+            'See what you\'re missing with locked premium content',
+            'Limited dashboard - upgrade prompts everywhere',
+            '⏰ Trial expires in 72 hours - upgrade to keep access',
+            '🔒 25+ advanced Empire guides locked',
+            '📧 Email capture for upgrade sequence automation'
         ]
     }
 }
