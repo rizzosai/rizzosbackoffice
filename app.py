@@ -1318,9 +1318,12 @@ Remember: You're not just a chatbot - you're a strategic business partner helpin
         
         if OPENAI_API_KEY:
             try:
-                # Use OpenAI for actual AI responses (updated API format)
+                # Use OpenAI for actual AI responses (clean initialization)
                 from openai import OpenAI
-                client = OpenAI(api_key=OPENAI_API_KEY)
+                client = OpenAI(
+                    api_key=OPENAI_API_KEY,
+                    base_url="https://api.openai.com/v1"
+                )
                 
                 # Get conversation history for context (Claude-like memory)
                 user_id = session.get('username', request.remote_addr)
@@ -1485,9 +1488,12 @@ Remember: Your admin personally assigned you to help this customer succeed. You'
         
         if OPENAI_API_KEY:
             try:
-                # Use OpenAI for actual AI responses (updated API format)
+                # Use OpenAI for actual AI responses (clean initialization)
                 from openai import OpenAI
-                client = OpenAI(api_key=OPENAI_API_KEY)
+                client = OpenAI(
+                    api_key=OPENAI_API_KEY,
+                    base_url="https://api.openai.com/v1"
+                )
                 
                 # Get conversation history for context (Claude-like memory)
                 user_id = session.get('username', request.remote_addr)
