@@ -6,9 +6,8 @@ from src.config import ADMIN_USERNAME, ADMIN_PASSWORD, OPENAI_API_KEY
 app = Flask(__name__, static_folder='public')
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# Configure OpenAI for Coey
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+# Configure OpenAI for Coey - using newer client-based API
+# OpenAI client is created in the chat function with the newer API
 
 # Example usage of config variables (remove or use as needed)
 print(f"Admin Username: {ADMIN_USERNAME}")
@@ -65,18 +64,26 @@ def coey_chat():
         Be helpful, encouraging, and provide actionable advice. Keep responses concise but informative."""
         
         if OPENAI_API_KEY:
-            # Use OpenAI for actual AI responses
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                max_tokens=500,
-                temperature=0.7
-            )
-            
-            coey_response = response.choices[0].message.content.strip()
+            try:
+                # Use OpenAI for actual AI responses (updated API format)
+                from openai import OpenAI
+                client = OpenAI(api_key=OPENAI_API_KEY)
+                
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    max_tokens=500,
+                    temperature=0.7
+                )
+                
+                coey_response = response.choices[0].message.content.strip()
+            except Exception as openai_error:
+                print(f"OpenAI API error: {str(openai_error)}")
+                # Fall back to local responses if OpenAI fails
+                coey_response = f"Hello {username}! I'm having trouble connecting to my advanced AI features right now, but I can still help you! I'm here to assist with your RizzosAI domain business. What would you like to know?"
         else:
             # Fallback responses when OpenAI is not configured
             fallback_responses = {
