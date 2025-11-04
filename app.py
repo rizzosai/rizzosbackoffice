@@ -1228,5 +1228,54 @@ def setup_account():
     flash('Account created successfully! Welcome to your Domain Empire!', 'success')
     return redirect(url_for('dashboard'))
 
+@app.route('/owner-access')
+def owner_access():
+    """Special route for owner to get Elite package access"""
+    # Auto-create owner account with Elite package
+    customers = load_customers()
+    
+    owner_username = "rizzosowner"
+    owner_password = "empire2024!"
+    
+    customers[owner_username] = {
+        'password': owner_password,
+        'email': 'owner@rizzosai.com',
+        'package': 'elite',
+        'created_at': datetime.now().isoformat(),
+        'session_id': 'owner_direct',
+        'guides_accessed': 0,
+        'owner': True
+    }
+    
+    save_customers(customers)
+    
+    # Auto-login
+    session['username'] = owner_username
+    session['is_admin'] = False
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Owner Access Created - Rizzos AI</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
+            .success-box {{ background: white; padding: 40px; border-radius: 15px; text-align: center; max-width: 500px; }}
+            .access-btn {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; border: none; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="success-box">
+            <h1>🏆 Owner Access Created!</h1>
+            <p><strong>Username:</strong> {owner_username}</p>
+            <p><strong>Password:</strong> {owner_password}</p>
+            <p><strong>Package:</strong> Elite Package ($499.99)</p>
+            <p>You now have access to all {len(PACKAGES['elite']['guides'])} Elite guides!</p>
+            <a href="/" class="access-btn">Access Your Elite Dashboard</a>
+        </div>
+    </body>
+    </html>
+    """
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
