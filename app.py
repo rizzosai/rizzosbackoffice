@@ -1277,5 +1277,45 @@ def owner_access():
     </html>
     """
 
+@app.route('/upgrade-me')
+def upgrade_me():
+    """Quick route to upgrade current user to Elite package"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    username = session['username']
+    customers = load_customers()
+    
+    if username in customers:
+        # Upgrade existing user to Elite
+        customers[username]['package'] = 'elite'
+        customers[username]['upgraded_at'] = datetime.now().isoformat()
+        save_customers(customers)
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Upgraded to Elite - Rizzos AI</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }}
+                .success-box {{ background: white; padding: 40px; border-radius: 15px; text-align: center; max-width: 500px; }}
+                .access-btn {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; border: none; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="success-box">
+                <h1>🚀 Upgraded to Elite!</h1>
+                <p><strong>User:</strong> {username}</p>
+                <p><strong>New Package:</strong> Elite Package ($499.99)</p>
+                <p>You now have access to all {len(PACKAGES['elite']['guides'])} Elite guides!</p>
+                <a href="/" class="access-btn">Access Your Elite Dashboard</a>
+            </div>
+        </body>
+        </html>
+        """
+    else:
+        return "User not found. Please login first."
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
