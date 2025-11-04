@@ -558,6 +558,198 @@ def logout():
     flash('You have been logged out successfully.', 'success')
     return redirect(url_for('login'))
 
+@app.route('/admin')
+def admin_dashboard():
+    """Admin dashboard"""
+    if 'username' not in session or not session.get('is_admin', False):
+        return redirect(url_for('login'))
+    
+    customers = load_customers()
+    banned_users = load_banned_users()
+    
+    admin_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Admin Dashboard - Rizzos AI</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }}
+            .container {{ max-width: 1200px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: rgba(255,255,255,0.95); border-radius: 15px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(10px); }}
+            .section {{ background: rgba(255,255,255,0.95); border-radius: 15px; padding: 25px; margin-bottom: 20px; backdrop-filter: blur(10px); }}
+            .logout-btn {{ background: #e53e3e; color: white; padding: 8px 16px; border: none; border-radius: 8px; text-decoration: none; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+            th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }}
+            th {{ background: #f7fafc; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🏆 Admin Dashboard</h1>
+                <p>Manage customers and system</p>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+            
+            <div class="section">
+                <h2>📊 Customers ({len(customers)})</h2>
+                <table>
+                    <tr><th>Username</th><th>Package</th><th>Email</th><th>Created</th><th>Guides Accessed</th></tr>
+                    {''.join([f'<tr><td>{username}</td><td>{info.get("package", "N/A")}</td><td>{info.get("email", "N/A")}</td><td>{info.get("created_at", "N/A")[:10] if info.get("created_at") else "N/A"}</td><td>{info.get("guides_accessed", 0)}</td></tr>' for username, info in customers.items()])}
+                </table>
+            </div>
+            
+            <div class="section">
+                <h2>🚫 Banned Users ({len(banned_users)})</h2>
+                <p>Banned users: {', '.join(banned_users) if banned_users else 'None'}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return admin_html
+
+@app.route('/guide/<guide_name>')
+def guide_detail(guide_name):
+    """Show specific guide content"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    username = session['username']
+    
+    # Check if user is banned
+    if is_banned_user(username):
+        session.clear()
+        return redirect(url_for('login'))
+    
+    available_guides = get_package_guides(username)
+    guide_display_name = guide_name.replace('-', ' ').title()
+    
+    if guide_display_name not in available_guides:
+        flash('Access denied to this guide.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Track guide access for empire-trial users
+    package = get_user_package(username)
+    if package == 'empire-trial':
+        customers = load_customers()
+        if username in customers:
+            customers[username]['guides_accessed'] = customers[username].get('guides_accessed', 0) + 1
+            save_customers(customers)
+            
+            # Check if they've hit the limit
+            if customers[username]['guides_accessed'] >= PACKAGES['empire-trial']['limit']:
+                flash('Trial limit reached! Upgrade to continue accessing guides.', 'warning')
+    
+    guide_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>{guide_display_name} - Rizzos AI</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }}
+            .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
+            .guide-container {{ background: rgba(255,255,255,0.95); border-radius: 15px; padding: 30px; backdrop-filter: blur(10px); }}
+            .back-btn {{ background: #e2e8f0; color: #4a5568; padding: 8px 16px; border: none; border-radius: 8px; text-decoration: none; margin-bottom: 20px; display: inline-block; }}
+            h1 {{ color: #4a5568; margin-bottom: 20px; }}
+            .guide-content {{ line-height: 1.6; }}
+            .guide-content h2 {{ color: #667eea; margin: 20px 0 10px 0; }}
+            .guide-content p {{ margin-bottom: 15px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="guide-container">
+                <a href="/" class="back-btn">← Back to Dashboard</a>
+                <h1>📚 {guide_display_name}</h1>
+                <div class="guide-content">
+                    <h2>Welcome to {guide_display_name}</h2>
+                    <p>This is premium content for {guide_display_name}. This guide contains valuable insights and strategies for domain investing success.</p>
+                    <p><strong>Note:</strong> Full content implementation would include detailed guides, videos, and resources specific to each topic.</p>
+                    <h2>Key Topics Covered:</h2>
+                    <p>• Strategic approaches and methodologies<br>
+                    • Market analysis and insights<br> 
+                    • Practical implementation steps<br>
+                    • Pro tips and advanced techniques</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return guide_html
+
+# Placeholder routes for dashboard links
+@app.route('/portfolio')
+def portfolio():
+    """Portfolio page placeholder"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return "<h1>Portfolio Coming Soon</h1><a href='/'>Back to Dashboard</a>"
+
+@app.route('/market') 
+def market():
+    """Market page placeholder"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return "<h1>Market Analysis Coming Soon</h1><a href='/'>Back to Dashboard</a>"
+
+@app.route('/tools')
+def tools():
+    """Tools page placeholder"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return "<h1>Tools Coming Soon</h1><a href='/'>Back to Dashboard</a>"
+
+@app.route('/coey/onboarding')
+def coey_onboarding():
+    """Coey AI Onboarding Chat Interface"""
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    # Similar to regular coey chat but with onboarding focus
+    onboarding_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Coey AI - Onboarding Assistant</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+            .container { max-width: 1000px; margin: 0 auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }
+            .header { background: rgba(255,255,255,0.95); border-radius: 15px 15px 0 0; padding: 20px; backdrop-filter: blur(10px); }
+            .back-btn { background: #e2e8f0; color: #4a5568; padding: 8px 16px; border: none; border-radius: 8px; text-decoration: none; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎯 Coey AI - Onboarding Assistant</h1>
+                <p>Get personalized guidance to start your domain empire</p>
+                <a href="/" class="back-btn">← Back to Dashboard</a>
+            </div>
+            <div style="background: rgba(255,255,255,0.95); flex: 1; padding: 20px; border-radius: 0 0 15px 15px;">
+                <h2>🚀 Onboarding Chat Coming Soon</h2>
+                <p>This will be your personalized onboarding experience with Coey AI.</p>
+                <a href="/coey">Try Regular Coey Chat →</a>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return onboarding_html
+
 @app.route('/coey')
 def coey_chat():
     """Coey AI Chat Interface"""
