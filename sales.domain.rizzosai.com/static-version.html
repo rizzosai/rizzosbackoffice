@@ -133,7 +133,7 @@
       padding: 12px 28px;
       border-radius: 8px;
       text-decoration: none;
-      box-shadow: 0 2px 8px rgba(0,31,91,0.08);
+      box-shadow: 0 2px 8px rgba(0, 31, 91, 0.08);
       transition: background 0.2s;
       border: none;
       cursor: pointer;
@@ -169,12 +169,12 @@
       // Show redirect notice
       document.getElementById('redirectNotice').style.display = 'block';
       document.getElementById('packageName').textContent = packageType;
-      
+
       // Open Stripe checkout
       window.open(stripeUrl, '_blank');
-      
+
       // Redirect to backoffice after short delay
-      setTimeout(function() {
+      setTimeout(function () {
         window.location.href = 'https://backoffice.rizzosai.com/purchase-success?package=' + packageType.toLowerCase().replace(' package', '').replace(' trial', '-trial').replace(' ', '-') + '&source=purchase';
       }, 3000);
     }
@@ -190,8 +190,11 @@
 
   <div class="intro-section">
     <h2>🎯 Why Choose RizzosAI Domains?</h2>
-    <p>Every package includes comprehensive, step-by-step training guides written by industry experts who have generated millions in online revenue. These aren't basic tutorials - they're professional-grade strategies used by successful entrepreneurs worldwide.</p>
-    <p><strong>Our guides cover everything from beginner fundamentals to advanced scaling techniques, ensuring you have the knowledge to maximize your investment and build a sustainable online business.</strong></p>
+    <p>Every package includes comprehensive, step-by-step training guides written by industry experts who have generated
+      millions in online revenue. These aren't basic tutorials - they're professional-grade strategies used by
+      successful entrepreneurs worldwide.</p>
+    <p><strong>Our guides cover everything from beginner fundamentals to advanced scaling techniques, ensuring you have
+        the knowledge to maximize your investment and build a sustainable online business.</strong></p>
   </div>
 
   <div class="redirect-notice" id="redirectNotice">
@@ -202,13 +205,15 @@
   <div class="logic-box">
     <h2>Choose Your Success Package</h2>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:32px;margin-top:40px;">
-      
+
       <!-- STARTER PACKAGE -->
-      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
-        <div style="background:#e60000;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
+      <div
+        style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
+        <div
+          style="background:#e60000;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
           STARTER</div>
         <div style="font-size:2em;color:#001f5b;font-weight:bold;margin-bottom:12px;">$29 + GST</div>
-        
+
         <div class="guides-highlight">
           <h3>🎓 5 Essential Success Guides</h3>
           <p>Perfect foundation for beginners</p>
@@ -233,16 +238,18 @@
           <li>Lifetime earnings go into your account every day</li>
           <li>Fast daily payments</li>
         </ul>
-        <button onclick="handlePurchase('Starter Package', 'https://buy.stripe.com/6oUeVd38Xfo4fMZ37L1ZS0i')" 
-                class="buy-button starter">Buy Starter</button>
+        <button onclick="handlePurchase('Starter Package', 'https://buy.stripe.com/6oUeVd38Xfo4fMZ37L1ZS0i')"
+          class="buy-button starter">Buy Starter</button>
       </div>
 
       <!-- PRO PACKAGE -->
-      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
-        <div style="background:#001f5b;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
+      <div
+        style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
+        <div
+          style="background:#001f5b;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
           PRO</div>
         <div style="font-size:2em;color:#001f5b;font-weight:bold;margin-bottom:12px;">$99 + GST</div>
-        
+
         <div class="guides-highlight">
           <h3>🚀 13 Advanced Business Guides</h3>
           <p>Professional-level strategies included</p>
@@ -268,16 +275,18 @@
           <li>Includes your own tracking URL for ad performance</li>
           <li>All daily earnings and fast payments included</li>
         </ul>
-        <button onclick="handlePurchase('Pro Package', 'https://buy.stripe.com/7sY6oH4d1gs8asF9w91ZS0j')" 
-                class="buy-button">Buy Pro</button>
+        <button onclick="handlePurchase('Pro Package', 'https://buy.stripe.com/7sY6oH4d1gs8asF9w91ZS0j')"
+          class="buy-button">Buy Pro</button>
       </div>
 
       <!-- ELITE PACKAGE -->
-      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
-        <div style="background:#e60000;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
+      <div
+        style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
+        <div
+          style="background:#e60000;color:#fff;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
           ELITE</div>
         <div style="font-size:2em;color:#001f5b;font-weight:bold;margin-bottom:12px;">$249 + GST</div>
-        
+
         <div class="guides-highlight">
           <h3>⚡ 20 Elite Strategy Guides</h3>
           <p>Advanced scaling & automation secrets</p>
@@ -301,16 +310,18 @@
           <li>PLUS: $50 worth of Facebook ads (run once for you)</li>
           <li>All daily earnings, fast payments, and ad tracking included</li>
         </ul>
-        <button onclick="handlePurchase('Elite Package', 'https://buy.stripe.com/4gM3cv7pd0ta9oBbEh1ZS0k')" 
-                class="buy-button">Buy Elite</button>
+        <button onclick="handlePurchase('Elite Package', 'https://buy.stripe.com/4gM3cv7pd0ta9oBbEh1ZS0k')"
+          class="buy-button">Buy Elite</button>
       </div>
 
       <!-- EMPIRE PACKAGE -->
-      <div style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
-        <div style="background:linear-gradient(90deg,#e60000 33%,#fff 33%,#fff 66%,#001f5b 66%);color:#001f5b;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
+      <div
+        style="background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,31,91,0.08);border:2px solid #e60000;max-width:350px;padding:32px 24px;text-align:center;">
+        <div
+          style="background:linear-gradient(90deg,#e60000 33%,#fff 33%,#fff 66%,#001f5b 66%);color:#001f5b;font-weight:bold;font-size:1.1em;padding:8px 0;border-radius:8px;margin-bottom:12px;">
           EMPIRE</div>
         <div style="font-size:2em;color:#001f5b;font-weight:bold;margin-bottom:12px;">$499 + GST</div>
-        
+
         <div class="guides-highlight">
           <h3>👑 35 Empire Building Guides</h3>
           <p>Complete business empire blueprint</p>
@@ -345,24 +356,30 @@
           <li>Includes your own cloud hosting account</li>
           <li>You can sell cloud hosting to others and earn more</li>
         </ul>
-        <button onclick="handlePurchase('Empire Package', 'https://buy.stripe.com/8x214naBp3FmgR3bEh1ZS0h')" 
-                class="buy-button" style="margin-right:8px;">Buy Empire</button>
-        <button onclick="handlePurchase('Empire Trial', 'https://buy.stripe.com/eVq6oHcJx4JqasF4bP1ZS0o')" 
-                class="buy-button" style="margin-left:8px;">Free Trial</button>
+        <button onclick="handlePurchase('Empire Package', 'https://buy.stripe.com/8x214naBp3FmgR3bEh1ZS0h')"
+          class="buy-button" style="margin-right:8px;">Buy Empire</button>
+        <button onclick="handlePurchase('Empire Trial', 'https://buy.stripe.com/eVq6oHcJx4JqasF4bP1ZS0o')"
+          class="buy-button" style="margin-left:8px;">Free Trial</button>
       </div>
     </div>
 
-    <div style="background: #f8f9fa; padding: 30px; border-radius: 15px; margin: 40px 0; text-align: center; border: 3px solid #e60000;">
+    <div
+      style="background: #f8f9fa; padding: 30px; border-radius: 15px; margin: 40px 0; text-align: center; border: 3px solid #e60000;">
       <h3 style="color: #001f5b; font-size: 1.8em; margin-bottom: 15px;">🏆 Every Guide Is Professionally Written</h3>
-      <p style="font-size: 1.2em; margin-bottom: 15px;">Created by entrepreneurs who have collectively generated over $50 million in online revenue</p>
-      <p style="font-size: 1.1em; color: #666;">✅ Step-by-step instructions ✅ Real-world examples ✅ Actionable strategies ✅ Regular updates ✅ Money-back guarantee</p>
+      <p style="font-size: 1.2em; margin-bottom: 15px;">Created by entrepreneurs who have collectively generated over
+        $50 million in online revenue</p>
+      <p style="font-size: 1.1em; color: #666;">✅ Step-by-step instructions ✅ Real-world examples ✅ Actionable
+        strategies ✅ Regular updates ✅ Money-back guarantee</p>
     </div>
   </div>
 
-  <footer style="width:100%;background:#f5f7fa;padding:32px 0;text-align:center;margin-top:48px;border-top:2px solid #e60000;">
+  <footer
+    style="width:100%;background:#f5f7fa;padding:32px 0;text-align:center;margin-top:48px;border-top:2px solid #e60000;">
     <div style="max-width:700px;margin:0 auto;">
-      <p style="font-size:1.2em;color:#001f5b;font-weight:bold;margin-bottom:18px;">Red, White & Blue. Fair. Automated. Profitable.</p>
-      <p style="font-size:1em;color:#666;">After purchase, you'll be redirected to your backoffice at backoffice.rizzosai.com</p>
+      <p style="font-size:1.2em;color:#001f5b;font-weight:bold;margin-bottom:18px;">Red, White & Blue. Fair. Automated.
+        Profitable.</p>
+      <p style="font-size:1em;color:#666;">After purchase, you'll be redirected to your backoffice at
+        backoffice.rizzosai.com</p>
     </div>
   </footer>
 </body>
